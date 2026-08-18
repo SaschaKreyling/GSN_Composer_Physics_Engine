@@ -757,7 +757,7 @@ PhysicsSystem = function (collision_iterations, collision_grid_resolution) {
 
 };
 
-PlayerController = function () {
+PlayerController = function (input) {
 
   this.MAX_MOTOR_ACCELERATION_STRENGTH = 10;
   this.MAX_MOTOR_SPEED = 15;
@@ -765,10 +765,10 @@ PlayerController = function () {
 
   this.updateBody = function (body) {
 
-    if (Engine.Systems.Input.isKeydown(InputKeyIdentifier.LEFT) || Engine.Systems.Input.isKeydown(InputKeyIdentifier.RIGHT)) {
+    if (input.isKeydown(InputKeyIdentifier.LEFT) || input.isKeydown(InputKeyIdentifier.RIGHT)) {
 
-      const rotation_direction = new Vector3(0, Engine.Systems.Input.isKeydown(InputKeyIdentifier.LEFT) ? 1 : -1, 0);
-      rotation_direction.mult(Engine.Systems.Input.isKeydown(InputKeyIdentifier.BACKWARD) ? -1 : 1);
+      const rotation_direction = new Vector3(0, input.isKeydown(InputKeyIdentifier.LEFT) ? 1 : -1, 0);
+      rotation_direction.mult(input.isKeydown(InputKeyIdentifier.BACKWARD) ? -1 : 1);
       body.angular_velocity = rotation_direction;
 
     } else {
@@ -783,10 +783,10 @@ PlayerController = function () {
 
     body.applyForce(motor_drag);
 
-    if (Engine.Systems.Input.isKeydown(InputKeyIdentifier.FORWARD) || Engine.Systems.Input.isKeydown(InputKeyIdentifier.BACKWARD)) {
+    if (input.isKeydown(InputKeyIdentifier.FORWARD) || input.isKeydown(InputKeyIdentifier.BACKWARD)) {
 
       const global_upward = new Vector3(0, 1, 0);
-      const global_direction = new Vector3(0, 0, Engine.Systems.Input.isKeydown(InputKeyIdentifier.FORWARD) ? 1 : -1);
+      const global_direction = new Vector3(0, 0, input.isKeydown(InputKeyIdentifier.FORWARD) ? 1 : -1);
       const direction = global_direction.rotateAround(global_upward, -body.rotation.y);
       const acceleration = direction.setMag(this.MAX_MOTOR_ACCELERATION_STRENGTH);
 
@@ -871,7 +871,7 @@ SignalBusSystem = function() {
 
   }
 
-  this.emit_signal = function(signal_name) {
+  this.emit_signal = function(signal_name, ...args) {
 
     if (!this.signals.has(signal_name)) {
       console.error("Signal '" + signal_name +"' could not be found");
@@ -974,218 +974,177 @@ Timer = function (time_in_seconds, repeat, callback) {
 
 };
 
-Engine = {
+Engine = function(plugin_node_object, scene_setup) {
 
-  Constants: {
+  this.FIXED_TIME_STEP = 1 / 60
+  this.ENEMY_SPAWN_TIME = 0.5;
+  this.MESH_INFO = new Map();
 
-    FIXED_TIME_STEP: 1 / 60,
-    ENEMY_SPAWN_TIME: 0.5,
-    MeshInfo: new Map()
+  this.Meshes_Initialized = false;
+  this.Accumulator = 0;
+  this.State = EngineStateType.LOADING;
 
-  },
+  this.Input = new InputSystem(plugin_node_object);
+  this.Output = new OutputSystem(plugin_node_object);
 
-  State: {
+  this.Physics = new PhysicsSystem(4, 10);
+  this.Controller = new ControllerSystem();
+  this.Camera = new Camera(10, Util.degreesToRadians(30));
+  this.SignalBus = new SignalBusSystem();
+  this.Timers = [];
 
-    IsSetup: false,
-    Accumulator: 0,
-    Type: EngineStateType.LOADING
+  this.Entities = [];
 
-  },
+  this.TemporaryVector = new Vector3();
 
-  Systems: {
+  this.initialize_meshes = function() {
 
-    Physics: null,
-    Controller: null,
-    Input: null,
-    Output: null,
-    SignalBus: null,
-    Camera: null,
-    Timers: []
+    if(this.Meshes_Initialized) return;
 
-  },
+    const mesh_identifiers = Object.values(MeshIdentifier);
 
-  Data: {
-
-    Entities: []
-
-  },
-
-  Container: {
-
-    TemporaryVector: new Vector3()
-
-  }
-
-};
-
-Engine.setup = function (plugin_node_object) {
-
-  Engine.Systems.Output = new OutputSystem(plugin_node_object);
-  Engine.Systems.Physics = new PhysicsSystem(4, 10);
-  Engine.Systems.Controller = new ControllerSystem();
-  Engine.Systems.Input = new InputSystem(plugin_node_object);
-  Engine.Systems.Camera = new Camera(10, Util.degreesToRadians(30));
-  Engine.Systems.SignalBus = new SignalBusSystem();
-
-}
-
-
-Engine.load_meshes = function () {
-
-  const mesh_identifiers = Object.values(MeshIdentifier);
-
-  for (var i = 0; i < mesh_identifiers.length; i++) {
+    for (var i = 0; i < mesh_identifiers.length; i++) {
 
     const identifier = mesh_identifiers[i];
-    const mesh_verticies = Engine.Systems.Input.getMeshData(identifier);
+    const mesh_verticies = this.Input.getMeshData(identifier);
     const mesh_as_vectors = Vector3.arrayFromFloatArray(mesh_verticies);
 
-    Engine.Constants.MeshInfo.set(identifier, { Verticies: mesh_as_vectors, AABB: new AABB(mesh_as_vectors) });
-
-  }
-
-}
-
-Engine.render_entities = function (alpha) {
-
-  const mesh_identifiers = Object.values(MeshIdentifier);
-
-  for (var i = 0; i < mesh_identifiers.length; i++) {
-
-    const identifier = mesh_identifiers[i];
-
-    const entities_with_mesh = Engine.Data.Entities.filter(x => x.type === identifier);
-
-    const array_size = Math.max(1, entities_with_mesh.length)
-
-    const interpolated_positions = new Array(array_size);
-    const interpolated_rotations = new Array(array_size);
-    const scales = new Array(array_size);
-
-    interpolated_positions[0] = new Vector3();
-    interpolated_rotations[0] = new Vector3();
-    scales[0] = 0;
-
-    for (var j = 0; j < entities_with_mesh.length; j++) {
-
-      const entity = entities_with_mesh[j];
-
-      interpolated_positions[j] = Vector3.interpolate_vectors(alpha, entity.physics_body.positionOld, entity.physics_body.position);
-      interpolated_rotations[j] = Vector3.interpolate_rotation_vectors(alpha, entity.physics_body.rotationOld, entity.physics_body.rotation);
-      scales[j] = entity.physics_body.scale;
+    this.MESH_INFO.set(identifier, { Verticies: mesh_as_vectors, AABB: new AABB(mesh_as_vectors) });
 
     }
 
-    Engine.Systems.Output.render_mesh(identifier, interpolated_positions, interpolated_rotations, scales);
+    this.Meshes_Initialized = true;
 
   }
 
-}
+  this.render_entities = function (alpha) {
+    
+    const mesh_identifiers = Object.values(MeshIdentifier);
 
-Engine.loop = function() {
+    for (var i = 0; i < mesh_identifiers.length; i++) {
 
-  Engine.Systems.Timers = Engine.Systems.Timers.filter(x => !x.finished);
+      const identifier = mesh_identifiers[i];
 
-  const deltaTime = Engine.Systems.Input.getData(InputDataIdentifier.DELTA_TIME) / 1000;
+      const entities_with_mesh = this.Entities.filter(x => x.type === identifier);
 
-  for (var i = 0; i < Engine.Systems.Timers.length; i++) {
+      const array_size = Math.max(1, entities_with_mesh.length)
 
-    Engine.Systems.Timers[i].tick(deltaTime);
+      const interpolated_positions = new Array(array_size);
+      const interpolated_rotations = new Array(array_size);
+      const scales = new Array(array_size);
 
-  }
+      interpolated_positions[0] = new Vector3();
+      interpolated_rotations[0] = new Vector3();
+      scales[0] = 0;
 
-  Engine.State.Accumulator += deltaTime;
+      for (var j = 0; j < entities_with_mesh.length; j++) {
 
-  while (Engine.State.Accumulator >= Engine.Constants.FIXED_TIME_STEP) {
+        const entity = entities_with_mesh[j];
 
-    Engine.Systems.Controller.step(Engine.Data.Entities);
-    Engine.Systems.Physics.step(Engine.Data.Entities, Engine.Constants.FIXED_TIME_STEP);
+        interpolated_positions[j] = Vector3.interpolate_vectors(alpha, entity.physics_body.positionOld, entity.physics_body.position);
+        interpolated_rotations[j] = Vector3.interpolate_rotation_vectors(alpha, entity.physics_body.rotationOld, entity.physics_body.rotation);
+        scales[j] = entity.physics_body.scale;
 
-    Engine.State.Accumulator -= Engine.Constants.FIXED_TIME_STEP;
+      }
 
-  }
+      this.Output.render_mesh(identifier, interpolated_positions, interpolated_rotations, scales);
 
-  const alpha = Engine.State.Accumulator / Engine.Constants.FIXED_TIME_STEP;
+    }
 
-  Engine.render_entities(alpha);
-  
-  
-}
+  };
 
-Engine.create_entity = function (mesh_identifier, controller, scale, position) {
+  this.loop = function() {
 
-  const collider = new AABBCollider(Engine.Constants.MeshInfo.get(mesh_identifier).AABB);
-  const body = new PhysicsBody(collider, scale);
-  body.position = position ? position : body.position;
+    this.Timers = this.Timers.filter(x => !x.finished);
 
-  const entity = new Entity(mesh_identifier, body, controller);
-  Engine.Data.Entities.push(entity);
+    const deltaTime = this.Input.getData(InputDataIdentifier.DELTA_TIME) / 1000;
 
-  return entity;
+    for (var i = 0; i < this.Timers.length; i++) {
 
-}
+      this.Timers[i].tick(deltaTime);
+
+    }
+
+    this.Accumulator += deltaTime;
+
+    while (this.Accumulator >= this.FIXED_TIME_STEP) {
+
+      this.Controller.step(this.Entities);
+      this.Physics.step(this.Entities, this.FIXED_TIME_STEP);
+
+      this.Accumulator -= this.FIXED_TIME_STEP;
+
+    }
+
+    const alpha = this.Accumulator / this.FIXED_TIME_STEP;
+
+    const player_body = this.Entities.filter(x => x.type === MeshIdentifier.PLAYER)[0].physics_body;
+    const player_render_position = Vector3.interpolate_vectors(alpha, player_body.positionOld, player_body.position);
+    const player_render_rotation_y = Vector3.interpolate_vectors(alpha, player_body.rotationOld, player_body.rotation).y;
+
+    this.Camera.update(player_render_position, player_render_rotation_y);
+    this.Output.set_camera(this.Camera);
+
+    this.render_entities(alpha);
+    this.Output.setEngineState(this.State);
+
+  };
+
+  this.create_entity = function (mesh_identifier, controller, scale, position) {
+
+    const collider = new AABBCollider(this.MESH_INFO.get(mesh_identifier).AABB);
+    const body = new PhysicsBody(collider, scale);
+    body.position = position ? position : body.position;
+
+    const entity = new Entity(mesh_identifier, body, controller);
+    this.Entities.push(entity);
+
+    return entity;
+
+  };
+
+  this.initialize_scene = function() {
+    scene_setup(this);
+    this.State = EngineStateType.GAME;
+    this.Output.setEngineState(this.State);
+  };
+
+  this.Output.setEngineState(this.State);
+
+};
+
+engine = null;
 
 //Plugin Node Run 
 
 const plugin_node_object = this;
 
-function update_active_camera(alpha) {
+function setup_scene(engine) {
 
-  const player_body = Engine.Data.Entities.filter(x => x.type === MeshIdentifier.PLAYER)[0].physics_body;
-  const player_render_position = Vector3.interpolate_vectors(alpha, player_body.positionOld, player_body.position);
-  const player_render_rotation_y = Vector3.interpolate_vectors(alpha, player_body.rotationOld, player_body.rotation).y;
-
-  Engine.Systems.Camera.update(player_render_position, player_render_rotation_y);
-  Engine.Systems.Output.set_camera(Engine.Systems.Camera);
-
-}
-
-function setup_scene() {
-
-  const player = Engine.create_entity(MeshIdentifier.PLAYER, new PlayerController(), 0.5);
+  const player = engine.create_entity(MeshIdentifier.PLAYER, new PlayerController(engine.Input), 0.5);
 
   for (var i = 0; i < 100; i++) {
 
-    Engine.create_entity(MeshIdentifier.ENEMY, new EnemyController(player), 0.5, new Vector3((Math.random() - 0.5) * 500, 0, (Math.random() - 0.5) * 500));
+    engine.create_entity(MeshIdentifier.ENEMY, new EnemyController(player), 0.5, new Vector3((Math.random() - 0.5) * 500, 0, (Math.random() - 0.5) * 500));
 
   }
 
-  const enemy_spawn_timer = new Timer(Engine.Constants.ENEMY_SPAWN_TIME, true, () => Engine.create_entity(MeshIdentifier.ENEMY, new EnemyController(player), 0.5, new Vector3((Math.random() - 0.5) * 500, 0, (Math.random() - 0.5) * 500)));
-  Engine.Systems.Timers.push(enemy_spawn_timer)
+  const enemy_spawn_timer = new Timer(engine.ENEMY_SPAWN_TIME, true, () => engine.create_entity(MeshIdentifier.ENEMY, new EnemyController(player), 0.5, new Vector3((Math.random() - 0.5) * 500, 0, (Math.random() - 0.5) * 500)));
+  engine.Timers.push(enemy_spawn_timer)
 
-  Engine.State.IsSetup = true;
+};
+
+if(!engine) {
+  engine = new Engine(plugin_node_object, setup_scene);
+}
+else if (!engine.Meshes_Initialized) {
+
+  engine.initialize_meshes();
+  engine.initialize_scene();
+
+}else{
+
+  engine.loop();
 
 }
 
-function game_loop() {
-
-  Engine.loop();
-  const alpha = Engine.State.Accumulator / Engine.Constants.FIXED_TIME_STEP;
-  update_active_camera(alpha);
-  
-}
-
-if (!Engine.State.IsSetup) {
-
-  Engine.setup(plugin_node_object);
-  Engine.Systems.Output.setEngineState(Engine.State.Type);
-  Engine.State.Type = EngineStateType.LOADING
-
-}
-
-if (Engine.State.Type === EngineStateType.LOADING) {
-
-  Engine.load_meshes();
-  
-  setup_scene();
-  Engine.State.Type = EngineStateType.GAME
-
-}
-
-if (Engine.State.Type === EngineStateType.GAME) {
-
-  game_loop();
-
-}
-
-Engine.Systems.Output.setEngineState(Engine.State.Type);
