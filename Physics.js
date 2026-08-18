@@ -8,7 +8,14 @@
 
 //Plugin Node init
 
-this.onTick = function () {return true;};
+this.onTick = function () {return true};
+
+MeshIdentifier = {
+
+  PLAYER: "Player",
+  ENEMY: "Enemy"
+
+};
 
 InputKeyIdentifier = {
 
@@ -24,13 +31,6 @@ InputKeyIdentifier = {
 InputDataIdentifier = {
 
   DELTA_TIME: "Delta Time"
-
-};
-
-MeshIdentifier = {
-
-  PLAYER: "Player",
-  ENEMY: "Enemy"
 
 };
 
@@ -61,19 +61,6 @@ CameraDataIdentifier = {
 EngineDataIdentifier = {
 
   STATE: "EngineState"
-  
-}
-
-OutputData = function(identifier, datatype) {
-  
-  this.IDENTIFIER = identifier;
-  this.DATATYPE = datatype;
-
-}
-
-EngineOutputData = {
-
-  STATE: new OutputData("EngineState", "Text");
   
 }
 
