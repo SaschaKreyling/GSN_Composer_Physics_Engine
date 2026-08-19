@@ -447,6 +447,15 @@ Vector3.interpolate_rotation_vectors = function (alpha, old_v, new_v) {
 
 };
 
+CollisionResult = new function(has_collided, correction_vector, collision_point_a, collision_point_b) {
+
+    this.has_collided = has_collided;
+    this.correction_vector = correction_vector;
+    this.collision_point_a = collision_point_a;
+    this.collision_point_b = collision_point_b;
+
+}
+
 GJK = new function(){};
 
 GJK._support_mapping = function(verticies, direction) {
@@ -505,11 +514,10 @@ GJK._nearest_simplex = function(simplex) {
     switch (simplex.length) {
       case 1:
         reduced_simplex = simplex;
-        new_v = simplex[0].copy().mult(-1);
+        new_v = new_v.copyOf(simplex[0]).mult(-1);
         contains_origin = new_v.magSq() < ERROR * ERROR;
         break;
       case 2:
-        
         break;
       case 3:
         break;
@@ -536,10 +544,10 @@ GJK.collide = function(verticies_a, verticies_b) {
 
     var w = this._minkowski_difference_support_mapping(verticies_a, verticies_b, direction);
     
-    if (w.dot(v) < 0) {
-      return {
-        has_collided: false
-      };
+    if (w.dot(direction) < 0) {
+
+      return new CollisionResult(false);
+
     }
     
     simplex.push(w);
@@ -547,15 +555,17 @@ GJK.collide = function(verticies_a, verticies_b) {
     var result = this._nearest_simplex(simplex);
 
     if(result.contains_origin) {
-      return {
-        has_collided: true
-      }
+
+      return new CollisionResult(true);
+
     }
 
-    v = result.direction;
+    direction = result.direction;
     simplex = result.simplex;
 
   }
+
+  return new CollisionResult(false);
 
 };
 
@@ -602,7 +612,7 @@ PhysicsBody.prototype.collide = function (other) {
 
   if (overlapX <= 0 || overlapY <= 0 || overlapZ <= 0) {
 
-    return { has_collided: false };
+    return new CollisionResult(false);
 
   }
 
@@ -627,12 +637,7 @@ PhysicsBody.prototype.collide = function (other) {
 
   }
 
-  return {
-
-    has_collided: true,
-    correction_vector: axis.mult(min_overlap * sign)
-
-  };
+  return new CollisionResult(true, axis.mult(min_overlap * sign));
 
 };
 
