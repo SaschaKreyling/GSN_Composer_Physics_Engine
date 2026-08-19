@@ -447,7 +447,7 @@ Vector3.interpolate_rotation_vectors = function (alpha, old_v, new_v) {
 
 };
 
-CollisionResult = new function(has_collided, correction_vector, collision_point_a, collision_point_b) {
+CollisionResult = function(has_collided, correction_vector, collision_point_a, collision_point_b) {
 
     this.has_collided = has_collided;
     this.correction_vector = correction_vector;
@@ -513,16 +513,25 @@ GJK._nearest_simplex = function(simplex) {
 
     switch (simplex.length) {
       case 1:
+
         reduced_simplex = simplex;
         new_v = new_v.copyOf(simplex[0]).mult(-1);
         contains_origin = new_v.magSq() < ERROR * ERROR;
+
         break;
+
       case 2:
+
         break;
+
       case 3:
+
         break;
+
       case 4:
+
         break;
+
     }
 
     return {
