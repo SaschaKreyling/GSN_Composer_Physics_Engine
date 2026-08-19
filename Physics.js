@@ -438,12 +438,126 @@ Vector3.interpolate_vectors = function (alpha, old_v, new_v) {
 }
 
 Vector3.interpolate_rotation_vectors = function (alpha, old_v, new_v) {
+
   return new Vector3(
     Util.interpolate_angle(alpha, old_v.x, new_v.x),
     Util.interpolate_angle(alpha, old_v.y, new_v.y),
     Util.interpolate_angle(alpha, old_v.z, new_v.z)
   );
-}
+
+};
+
+GJK = new function(){};
+
+GJK._support_mapping = function(verticies, direction) {
+
+  var max_point = verticies[0];
+  var max_value = direction.dot(verticies[0]);
+
+  for(var i = 1; i < verticies.length; i++){
+
+    const point = verticies[i];
+    const value = direction.dot(point);
+
+    if(value > max_value) {
+
+      max_point = point;
+      max_value = value;
+
+    }
+
+  }
+
+  return max_point.copy();
+
+};
+
+GJK._minkowski_difference_support_mapping = function(verticies_a, verticies_b, in_direction) {
+
+  const direction = in_direction.copy();
+  const support_a = this._support_mapping(verticies_a, direction);
+  const support_b = this._support_mapping(verticies_b, direction.mult(-1));
+
+  return support_a.sub(support_b);
+
+};
+
+GJK._closest_point_to_origin_line = function (a, b) {
+
+};
+
+GJK._closest_point_to_origin_triangle = function (a, b, c) {
+
+};
+
+GJK._closest_point_to_origin_tetrahedron = function (a, b, c, d) {
+
+};
+
+GJK._nearest_simplex = function(simplex) {
+
+   const ERROR = 1e-5;
+
+    var reduced_simplex = [];
+    var new_v = new Vector3();
+    var contains_origin = false;
+
+    switch (simplex.length) {
+      case 1:
+        reduced_simplex = simplex;
+        new_v = simplex[0].copy().mult(-1);
+        contains_origin = new_v.magSq() < ERROR * ERROR;
+        break;
+      case 2:
+        
+        break;
+      case 3:
+        break;
+      case 4:
+        break;
+    }
+
+    return {
+      simplex: reduced_simplex,
+      direction: new_v,
+      contains_origin: contains_origin
+    }
+
+};
+
+GJK.collide = function(verticies_a, verticies_b) {
+
+  const MAX_LOOPS = 32;
+
+  var simplex = [];
+  var direction = new Vector3(1, 0, 0);
+
+  for(var i = 0; i < MAX_LOOPS; i++) {
+
+    var w = this._minkowski_difference_support_mapping(verticies_a, verticies_b, direction);
+    
+    if (w.dot(v) < 0) {
+      return {
+        has_collided: false
+      };
+    }
+    
+    simplex.push(w);
+
+    var result = this._nearest_simplex(simplex);
+
+    if(result.contains_origin) {
+      return {
+        has_collided: true
+      }
+    }
+
+    v = result.direction;
+    simplex = result.simplex;
+
+  }
+
+};
 
 Entity = function (type, physics_body, controller) {
 
