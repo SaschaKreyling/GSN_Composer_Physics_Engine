@@ -311,6 +311,16 @@ Vector3.prototype.add = function (other) {
 
 };
 
+Vector3.prototype.sub = function (other) {
+
+  this.x -= other.x;
+  this.y -= other.y;
+  this.z -= other.z;
+
+  return this;
+
+};
+
 Vector3.prototype.addScaled = function (other, scale) {
 
   this.x += other.x * scale;
@@ -337,11 +347,7 @@ Vector3.prototype.cross = function (other) {
   const y = this.z * other.x - this.x * other.z;
   const z = this.x * other.y - this.y * other.x;
 
-  this.x = x;
-  this.y = y;
-  this.z = z;
-
-  return this;
+  return new Vector3(x, y, z);
 
 };
 
@@ -454,19 +460,29 @@ CollisionResult = function(has_collided, correction_vector, collision_point_a, c
     this.collision_point_a = collision_point_a;
     this.collision_point_b = collision_point_b;
 
-}
+};
+
 
 GJK = new function(){};
 
-GJK._support_mapping = function(verticies, direction) {
+GJK._support_mapping = function(convex_shape_collider, direction) {
 
-  var max_point = verticies[0];
-  var max_value = direction.dot(verticies[0]);
+  const X_AXIS = Vector3(1,0,0);
+  const Y_AXIS = Vector3(0,1,0);
+  const Z_AXIS = Vector3(0,0,1);
 
-  for(var i = 1; i < verticies.length; i++){
+  const local_direction = direction.copy()
+    .rotateAround(Z_AXIS, -convex_shape_collider.rotation.z)
+    .rotateAround(Y_AXIS, -convex_shape_collider.rotation.y)
+    .rotateAround(X_AXIS, -convex_shape_collider.rotation.x);
 
-    const point = verticies[i];
-    const value = direction.dot(point);
+  var max_point = convex_shape_collider.verticies[0];
+  var max_value = local_direction.dot(convex_shape_collider.verticies[0]);
+
+  for(var i = 1; i < convex_shape_collider.verticies.length; i++){
+
+    const point = convex_shape_collider.verticies[i];
+    const value = local_direction.dot(point);
 
     if(value > max_value) {
 
@@ -477,103 +493,202 @@ GJK._support_mapping = function(verticies, direction) {
 
   }
 
-  return max_point.copy();
+  const world_point = max_point.copy()
+  .mult(convex_shape_collider.scale)
+  .rotateAround(X_AXIS, convex_shape_collider.rotation.x)
+  .rotateAround(Y_AXIS, convex_shape_collider.rotation.y)
+  .rotateAround(Z_AXIS, convex_shape_collider.rotation.z)
+  .add(convex_shape_collider.position);
+
+  return world_point;
 
 };
 
-GJK._minkowski_difference_support_mapping = function(verticies_a, verticies_b, in_direction) {
+GJK._minkowski_difference_support_mapping = function(convex_shape_collider_a, convex_shape_collider_b, direction) {
 
-  const direction = in_direction.copy();
-  const support_a = this._support_mapping(verticies_a, direction);
-  const support_b = this._support_mapping(verticies_b, direction.mult(-1));
+  const support_a = this._support_mapping(convex_shape_collider_a, direction);
+  const support_b = this._support_mapping(convex_shape_collider_b, direction.mult(-1));
 
   return support_a.sub(support_b);
 
 };
 
-GJK._closest_point_to_origin_line = function (a, b) {
+
+GJK._pick_line = function (direction, convex_shape_collider_a, convex_shape_collider_b) {
+
+  b = this._minkowski_difference_support_mapping(convex_shape_collider_b, convex_shape_collider_a, direction);
+  a = this._minkowski_difference_support_mapping(convex_shape_collider_b, convex_shape_collider_a, direction.copy().mult(-1));
+
+  return [a, b];
 
 };
 
-GJK._closest_point_to_origin_triangle = function (a, b, c) {
+GJK._pick_triangle = function (line, convex_shape_collider_a, convex_shape_collider_b, max_iterations) {
 
-};
+  var a = line[0];
+  var b = line[1];
 
-GJK._closest_point_to_origin_tetrahedron = function (a, b, c, d) {
+  var a_to_b = new Vector3().copyOf(b).sub(a);
+  var a_to_origin = new Vector3().copyOf(a).mult(-1);
+  var direction = a_to_b.cross(a_to_origin).cross(a_to_b);
 
-};
+  var c = b.copy();
+  b = b.copyOf(a);
+  a = this._minkowski_difference_support_mapping(convex_shape_collider_a, convex_shape_collider_b, direction);
 
-GJK._nearest_simplex = function(simplex) {
+  var a_to_c = new Vector3();
 
-   const ERROR = 1e-5;
+  for(var i = 0; i < max_iterations; i++) {
 
-    var reduced_simplex = [];
-    var new_v = new Vector3();
-    var contains_origin = false;
+    a_to_b = a_to_b.copyOf(b).sub(a);
+    a_to_origin = a_to_origin.copyOf(a).mult(-1);
+    a_to_c = a_to_c.copyOf(c).sub(a);
 
-    switch (simplex.length) {
-      case 1:
+    const triangle_normal = a_to_b.cross(a_to_c);
+    const perpendicular_ab = a_to_b.cross(triangle_normal);
+    const perpendicular_ac = triangle_normal.cross(a_to_c);
 
-        reduced_simplex = simplex;
-        new_v = new_v.copyOf(simplex[0]).mult(-1);
-        contains_origin = new_v.magSq() < ERROR * ERROR;
+    if (perpendicular_ab.dot(a_to_origin) > 0) {
 
-        break;
+      c = c.copyOf(b);
+      b = b.copyOf(a);
+      direction = direction.copyOf(perpendicular_ab);
 
-      case 2:
+    } else if (perpendicular_ac.dot(a_to_origin) > 0) {
 
-        break;
+      b = b.copyOf(a);
+      direction = direction.copyOf(perpendicular_ac);
 
-      case 3:
+    } else { 
 
-        break;
-
-      case 4:
-
-        break;
+      return [a, b, c];
 
     }
 
-    return {
-      simplex: reduced_simplex,
-      direction: new_v,
-      contains_origin: contains_origin
-    }
+    a = this._minkowski_difference_support_mapping(convex_shape_collider_a, convex_shape_collider_b, direction);
+  
+  }
+
+  return null;
 
 };
 
-GJK.collide = function(verticies_a, verticies_b) {
+GJK._check_and_pick_tetrahedron = function (triangle, convex_shape_collider_a, convex_shape_collider_b, max_iterations) {
+  
+  var a = triangle[0];
+  var b = triangle[1];
+  var c = triangle[2];
+  var d = new Vector3();
+  
+  var a_to_b = b.copy().sub(a);
+  var a_to_c = c.copy().sub(a);
+  var a_to_d = new Vector3();
+  var origin_to_a = a.copy().mult(-1);
 
-  const MAX_LOOPS = 32;
+  var triangle_normal = a_to_b.cross(a_to_c);
 
-  var simplex = [];
-  var direction = new Vector3(1, 0, 0);
+  if(triangle_normal.dot(origin_to_a) > 0) {
 
-  for(var i = 0; i < MAX_LOOPS; i++) {
+    d = d.copyOf(c);
+    c = c.copyOf(b);
+    b = b.copyOf(a);
+    a = this._minkowski_difference_support_mapping(convex_shape_collider_a, convex_shape_collider_b, triangle_normal);
+  
+  } else {
 
-    var w = this._minkowski_difference_support_mapping(verticies_a, verticies_b, direction);
+    d = d.copyOf(b);
+    b = b.copyOf(a);
+    a = this._minkowski_difference_support_mapping(convex_shape_collider_a, convex_shape_collider_b, triangle_normal.copy().mult(-1)); 
+
+  }
+
+  for(var i = 0; i < max_iterations; i++) {
+
+    a_to_b = b.copy().sub(a);
+    a_to_c = c.copy().sub(a);
+    a_to_d = d.copy().sub(a);
+    origin_to_a = a.copy().mult(-1);
+
+    triangle_normal = a_to_b.cross(a_to_c);
+
+    if(triangle_normal.dot(origin_to_a) > 0) {
+
+    } else {
+
+      var face_normal = a_to_c.cross(a_to_d);
+
+      if (face_normal.dot(origin_to_a) > 0) {
+
+        b = b.copyOf(c);
+        c = c.copyOf(d);
+        triangle_normal = triangle_normal.copyOf(face_normal);
+
+      } else {
+        
+        face_normal = a_to_d.cross(a_to_b);
+
+        if(face_normal.dot(origin_to_a) > 0) {
+
+          c = c.copyOf(b);
+          b = b.copyOf(d);
+          triangle_normal = triangle_normal.copyOf(face_normal);
+
+        } else {
+
+          return {
+            contains_origin: true,
+            tetrahedron: [a,b,c,d]
+          };
+
+        }
+
+      }
+
+    }
+
+    if(triangle_normal.dot(origin_to_a) > 0) {
+
+      d = d.copyOf(c);
+      c = c.copyOf(b);
+      b = b.copyOf(a);
+      a = this._minkowski_difference_support_mapping(convex_shape_collider_a, convex_shape_collider_b, triangle_normal);
     
-    if (w.dot(direction) < 0) {
+    } else {
 
-      return new CollisionResult(false);
+      d = d.copyOf(b);
+      b = b.copyOf(a);
+      a = this._minkowski_difference_support_mapping(convex_shape_collider_a, convex_shape_collider_b, triangle_normal.copy().mult(-1)); 
 
     }
+
+  }
+
+  return {contains_origin: false, tetrahedron: null}
+
+};
+
+
+GJK.collide = function(convex_shape_collider_a, convex_shape_collider_b) {
+
+  const MAX_ITERATIONS = 32;
+
+  const random_direction = new Vector3(Math.random(), Math.random(), Math.random()).normalize();
+
+  const line = this._pick_line(random_direction, convex_shape_collider_a, convex_shape_collider_b);
+  const triangle = this._pick_triangle(line, convex_shape_collider_a, convex_shape_collider_b, MAX_ITERATIONS);
+  
+  if (triangle != null) {
+
+    const tetrahedron_check = this._check_and_pick_tetrahedron(triangle, convex_shape_collider_a, convex_shape_collider_b, MAX_ITERATIONS);
     
-    simplex.push(w);
-
-    var result = this._nearest_simplex(simplex);
-
-    if(result.contains_origin) {
+    if(tetrahedron_check.contains_origin) {
 
       return new CollisionResult(true);
 
     }
 
-    direction = result.direction;
-    simplex = result.simplex;
-
   }
-
+  
   return new CollisionResult(false);
 
 };
@@ -775,6 +890,22 @@ AABBCollider.prototype.applyTransform = function (position, rotation, scale) {
 
 }
 
+ConvexShapeCollider = function(verticies) {
+
+  this.verticies = verticies;
+  this.position = new Vector3();
+  this.rotation = new Vector3();
+  this.scale = 1;
+
+}
+
+ConvexShapeCollider.prototype.applyTransform = function(position, rotation, scale) {
+
+  this.position = position;
+  this.rotation = rotation;
+  this.scale = scale;
+  
+}
 
 PhysicsBodySpatialGrid = function (resolution) {
 
