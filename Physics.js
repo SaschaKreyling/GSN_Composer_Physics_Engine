@@ -10,6 +10,8 @@
 
 this.onTick = function () {return true};
 
+DEBUG = false;
+
 MeshIdentifier = {
 
   PLAYER: "Player",
@@ -507,163 +509,173 @@ GJK._support_mapping = function(convex_shape_collider, direction) {
 GJK._minkowski_difference_support_mapping = function(convex_shape_collider_a, convex_shape_collider_b, direction) {
 
   const support_a = this._support_mapping(convex_shape_collider_a, direction);
-  const support_b = this._support_mapping(convex_shape_collider_b, direction.mult(-1));
+  const support_b = this._support_mapping(convex_shape_collider_b, direction.copy().mult(-1));
 
   return support_a.sub(support_b);
 
 };
 
 
-GJK._pick_line = function (direction, convex_shape_collider_a, convex_shape_collider_b) {
+GJK._get_line_simplex_suitable_for_expansion = function (direction, convex_shape_collider_a, convex_shape_collider_b) {
 
-  b = this._minkowski_difference_support_mapping(convex_shape_collider_b, convex_shape_collider_a, direction);
-  a = this._minkowski_difference_support_mapping(convex_shape_collider_b, convex_shape_collider_a, direction.copy().mult(-1));
+  const a = this._minkowski_difference_support_mapping(convex_shape_collider_a, convex_shape_collider_b, direction);
+  const b = this._minkowski_difference_support_mapping(convex_shape_collider_a, convex_shape_collider_b, direction.copy().mult(-1));
 
   return [a, b];
 
 };
 
-GJK._pick_triangle = function (line, convex_shape_collider_a, convex_shape_collider_b, max_iterations) {
+GJK._get_perpendicular_triangle_vectors = function(a, b, c) {
 
-  var a = line[0];
-  var b = line[1];
+  const a_to_b = b.copy().sub(a);
+  const a_to_c = c.copy().sub(a);
+  const triangle_normal = a_to_b.cross(a_to_c);
 
-  var a_to_b = new Vector3().copyOf(b).sub(a);
-  var a_to_origin = new Vector3().copyOf(a).mult(-1);
-  var direction = a_to_b.cross(a_to_origin).cross(a_to_b);
+  return {
 
-  var c = b.copy();
-  b = b.copyOf(a);
-  a = this._minkowski_difference_support_mapping(convex_shape_collider_a, convex_shape_collider_b, direction);
+    ab: a_to_b.cross(triangle_normal),
+    ac: triangle_normal.cross(a_to_c)
 
-  var a_to_c = new Vector3();
+  }
 
-  for(var i = 0; i < max_iterations; i++) {
+}
 
-    a_to_b = a_to_b.copyOf(b).sub(a);
-    a_to_origin = a_to_origin.copyOf(a).mult(-1);
-    a_to_c = a_to_c.copyOf(c).sub(a);
+GJK._is_direction_similar = function(direction1, direction2) {
 
-    const triangle_normal = a_to_b.cross(a_to_c);
-    const perpendicular_ab = a_to_b.cross(triangle_normal);
-    const perpendicular_ac = triangle_normal.cross(a_to_c);
+  return direction1.dot(direction2) > 0;
 
-    if (perpendicular_ab.dot(a_to_origin) > 0) {
+}
 
-      c = c.copyOf(b);
-      b = b.copyOf(a);
-      direction = direction.copyOf(perpendicular_ab);
+GJK._find_suitable_trianlge_simplex = function(triangle, convex_shape_collider_a, convex_shape_collider_b, iterations_left) {
 
-    } else if (perpendicular_ac.dot(a_to_origin) > 0) {
+  if(iterations_left === 0) return null;
 
-      b = b.copyOf(a);
-      direction = direction.copyOf(perpendicular_ac);
+  const perpendicular_triangle_vectors = this._get_perpendicular_triangle_vectors(triangle[0],triangle[1],triangle[2]);
+  const a_to_origin = new Vector3(0,0,0).sub(triangle[0]);
 
-    } else { 
+  if (this._is_direction_similar(perpendicular_triangle_vectors.ab, a_to_origin)) {
 
-      return [a, b, c];
+    const a = this._minkowski_difference_support_mapping(convex_shape_collider_a, convex_shape_collider_b, perpendicular_triangle_vectors.ab);
+    const b = triangle[0];
+    const c = triangle[1];
 
-    }
+    if(!this._is_direction_similar(a, perpendicular_triangle_vectors.ab)) return null;
 
-    a = this._minkowski_difference_support_mapping(convex_shape_collider_a, convex_shape_collider_b, direction);
+    return this._find_suitable_trianlge_simplex([a, b, c], convex_shape_collider_a, convex_shape_collider_b, iterations_left - 1);
+
+  } else if(this._is_direction_similar(perpendicular_triangle_vectors.ac, a_to_origin)) {
+    
+    const a = this._minkowski_difference_support_mapping(convex_shape_collider_a, convex_shape_collider_b, perpendicular_triangle_vectors.ac)
+    const b = triangle[0];
+    const c = triangle[2];
+
+    if(!this._is_direction_similar(a, perpendicular_triangle_vectors.ac)) return null;
+
+    return this._find_suitable_trianlge_simplex([a, b, c], convex_shape_collider_a, convex_shape_collider_b, iterations_left - 1);
   
   }
 
-  return null;
+  return triangle;
+
+}
+
+GJK._get_triangle_simplex_suitable_for_expansion = function (line, convex_shape_collider_a, convex_shape_collider_b, max_iterations) {
+
+  var origin = new Vector3(0, 0, 0);
+  var perpendicular_vectors_line_origin_triangle = this._get_perpendicular_triangle_vectors(line[0], line[1], origin);
+
+  var a = this._minkowski_difference_support_mapping(convex_shape_collider_a, convex_shape_collider_b, perpendicular_vectors_line_origin_triangle.ab);
+  var b = line[0];
+  var c = line[1];
+
+  return this._find_suitable_trianlge_simplex([a, b, c], convex_shape_collider_a, convex_shape_collider_b, max_iterations);
 
 };
 
-GJK._check_and_pick_tetrahedron = function (triangle, convex_shape_collider_a, convex_shape_collider_b, max_iterations) {
+GJK._get_triangle_normal = function(a,b,c) {
+
+  const a_to_b = b.copy().sub(a);
+  const a_to_c = c.copy().sub(a);
   
-  var a = triangle[0];
-  var b = triangle[1];
-  var c = triangle[2];
-  var d = new Vector3();
-  
-  var a_to_b = b.copy().sub(a);
-  var a_to_c = c.copy().sub(a);
-  var a_to_d = new Vector3();
-  var origin_to_a = a.copy().mult(-1);
+  return a_to_b.cross(a_to_c);
 
-  var triangle_normal = a_to_b.cross(a_to_c);
+}
 
-  if(triangle_normal.dot(origin_to_a) > 0) {
+GJK._find_tetrahedron_containing_origin = function(tetrahedron, convex_shape_collider_a, convex_shape_collider_b, iterations_left) {
 
-    d = d.copyOf(c);
-    c = c.copyOf(b);
-    b = b.copyOf(a);
-    a = this._minkowski_difference_support_mapping(convex_shape_collider_a, convex_shape_collider_b, triangle_normal);
+    if(iterations_left === 0) return null;
+
+    const abc_triangle_normal = this._get_triangle_normal(tetrahedron[0], tetrahedron[1], tetrahedron[2]);
+
+    var origin_to_a = new Vector3().sub(tetrahedron[0]);
+
+    if (this._is_direction_similar(abc_triangle_normal, origin_to_a)) {
+
+      const a = this._minkowski_difference_support_mapping(convex_shape_collider_a, convex_shape_collider_b, abc_triangle_normal);
+      const b = tetrahedron[0];
+      const c = tetrahedron[1];
+      const d = tetrahedron[2];
+
+      return this._find_tetrahedron_containing_origin([a, b, c, d], convex_shape_collider_a, convex_shape_collider_b, iterations_left -1);
+
+    }
+
+    const acd_triangle_normal = this._get_triangle_normal(tetrahedron[0], tetrahedron[2], tetrahedron[3]);
+
+    if (this._is_direction_similar(acd_triangle_normal, origin_to_a)) {
+
+      const a = this._minkowski_difference_support_mapping(convex_shape_collider_a, convex_shape_collider_b, acd_triangle_normal.copy().mult(-1));
+      const b = tetrahedron[0];
+      const c = tetrahedron[3];
+      const d = tetrahedron[2];
+
+      return this._find_tetrahedron_containing_origin([a, b, c, d], convex_shape_collider_a, convex_shape_collider_b, iterations_left -1);
+    
+    }
+    
+    const adb_triangle_normal = this._get_triangle_normal(tetrahedron[0], tetrahedron[3], tetrahedron[1]);
+    
+    if (this._is_direction_similar(adb_triangle_normal, origin_to_a)) {
+
+      const a = this._minkowski_difference_support_mapping(convex_shape_collider_a, convex_shape_collider_b, adb_triangle_normal.copy().mult(-1));
+      const b = tetrahedron[0];
+      const c = tetrahedron[1];
+      const d = tetrahedron[3];
+
+      return this._find_tetrahedron_containing_origin([a, b, c, d], convex_shape_collider_a, convex_shape_collider_b, iterations_left -1);
+    
+    }
+
+    return tetrahedron;
+
+}
+
+GJK._expand_to_tetrahedron_containing_origin = function (triangle, convex_shape_collider_a, convex_shape_collider_b, max_iterations) {
+
+  var origin_to_a = triangle[0].copy().mult(-1);
+  var triangle_normal = this._get_triangle_normal(triangle[0], triangle[1], triangle[2]);
+
+  if (this._is_direction_similar(triangle_normal,origin_to_a)) {
+
+    const a = this._minkowski_difference_support_mapping(convex_shape_collider_a, convex_shape_collider_b, triangle_normal);
+    const b = triangle[0];
+    const c = triangle[1];
+    const d = triangle[2];
+
+    return this._find_tetrahedron_containing_origin([a,b,c,d],convex_shape_collider_a, convex_shape_collider_b, max_iterations);
   
   } else {
 
-    d = d.copyOf(b);
-    b = b.copyOf(a);
-    a = this._minkowski_difference_support_mapping(convex_shape_collider_a, convex_shape_collider_b, triangle_normal.copy().mult(-1)); 
-
-  }
-
-  for(var i = 0; i < max_iterations; i++) {
-
-    a_to_b = b.copy().sub(a);
-    a_to_c = c.copy().sub(a);
-    a_to_d = d.copy().sub(a);
-    origin_to_a = a.copy().mult(-1);
-
-    triangle_normal = a_to_b.cross(a_to_c);
-
-    if(triangle_normal.dot(origin_to_a) > 0) {
-
-    } else {
-
-      var face_normal = a_to_c.cross(a_to_d);
-
-      if (face_normal.dot(origin_to_a) > 0) {
-
-        b = b.copyOf(c);
-        c = c.copyOf(d);
-        triangle_normal = triangle_normal.copyOf(face_normal);
-
-      } else {
-        
-        face_normal = a_to_d.cross(a_to_b);
-
-        if(face_normal.dot(origin_to_a) > 0) {
-
-          c = c.copyOf(b);
-          b = b.copyOf(d);
-          triangle_normal = triangle_normal.copyOf(face_normal);
-
-        } else {
-
-          return {
-            contains_origin: true,
-            tetrahedron: [a,b,c,d]
-          };
-
-        }
-
-      }
-
-    }
-
-    if(triangle_normal.dot(origin_to_a) > 0) {
-
-      d = d.copyOf(c);
-      c = c.copyOf(b);
-      b = b.copyOf(a);
-      a = this._minkowski_difference_support_mapping(convex_shape_collider_a, convex_shape_collider_b, triangle_normal);
+    const a = this._minkowski_difference_support_mapping(convex_shape_collider_a, convex_shape_collider_b, triangle_normal.copy().mult(-1)); 
+    const b = triangle[0];
+    const c = triangle[2];
+    const d = triangle[1];
     
-    } else {
-
-      d = d.copyOf(b);
-      b = b.copyOf(a);
-      a = this._minkowski_difference_support_mapping(convex_shape_collider_a, convex_shape_collider_b, triangle_normal.copy().mult(-1)); 
-
-    }
-
+    return this._find_tetrahedron_containing_origin([a,b,c,d],convex_shape_collider_a, convex_shape_collider_b, max_iterations);
+  
   }
 
-  return {contains_origin: false, tetrahedron: null}
+  return this._find_tetrahedron_containing_origin([a,b,c,d],convex_shape_collider_a, convex_shape_collider_b, max_iterations);
 
 };
 
@@ -674,14 +686,14 @@ GJK.collide = function(convex_shape_collider_a, convex_shape_collider_b) {
 
   const random_direction = new Vector3(Math.random(), Math.random(), Math.random()).normalize();
 
-  const line = this._pick_line(random_direction, convex_shape_collider_a, convex_shape_collider_b);
-  const triangle = this._pick_triangle(line, convex_shape_collider_a, convex_shape_collider_b, MAX_ITERATIONS);
+  const line_simplex = this._get_line_simplex_suitable_for_expansion(random_direction, convex_shape_collider_a, convex_shape_collider_b);
+  const triangle_simplex = this._get_triangle_simplex_suitable_for_expansion(line_simplex, convex_shape_collider_a, convex_shape_collider_b, MAX_ITERATIONS);
   
-  if (triangle != null) {
+  if (triangle_simplex != null) {
 
-    const tetrahedron_check = this._check_and_pick_tetrahedron(triangle, convex_shape_collider_a, convex_shape_collider_b, MAX_ITERATIONS);
+    const tetrahedron = this._expand_to_tetrahedron_containing_origin(triangle_simplex, convex_shape_collider_a, convex_shape_collider_b, MAX_ITERATIONS);
     
-    if(tetrahedron_check.contains_origin) {
+    if(tetrahedron) {
 
       return new CollisionResult(true);
 
@@ -1392,6 +1404,11 @@ function setup_scene(engine) {
   engine.Timers.push(enemy_spawn_timer)
 
 };
+
+
+if(DEBUG) {
+  console.log("Debug: \n");
+}
 
 if(!engine) {
   engine = new Engine(plugin_node_object, setup_scene);
