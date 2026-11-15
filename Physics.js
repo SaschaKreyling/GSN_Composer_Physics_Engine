@@ -12,13 +12,6 @@ this.onTick = function () {return true};
 
 DEBUG = false;
 
-MeshIdentifier = {
-
-  PLAYER: "Player",
-  ENEMY: "Enemy"
-
-};
-
 InputKeyIdentifier = {
 
   FORWARD: "Forward",
@@ -33,6 +26,29 @@ InputKeyIdentifier = {
 InputDataIdentifier = {
 
   DELTA_TIME: "Delta Time"
+
+};
+
+HeightMapIdentifier = {
+  WORLD: "World"
+};
+
+HeightMapFieldIdentifier = {
+
+  SIZE: " Size", 
+  HEIGHTS: " Heights",
+  HEIGHT_RESOLUTION: " Height Resolution",
+  MINIMUM_HEIGHT: " Minimum Height",
+  MAXIMUM_HEIGHT: " Maximum Height",
+  CENTER_X: " Center X",
+  CENTER_Y: " Center Y"
+
+}
+
+MeshIdentifier = {
+
+  PLAYER: "Player",
+  ENEMY: "Enemy"
 
 };
 
@@ -64,7 +80,7 @@ EngineDataIdentifier = {
 
   STATE: "EngineState"
   
-}
+};
 
 EngineStateType = {
 
@@ -72,7 +88,15 @@ EngineStateType = {
   LOADING: "Loading",
   GAME: "Game"
 
-}
+};
+
+ColliderType = {
+
+  AABB: "AABB_COLLIDER_IDENTIFIER",
+  CONVEX: "CONVEX_SHAPE_COLLIDER_IDENTIFIER",
+  COMBINED: "COMBINED_COLLIDER_IDENTIFIER"
+
+};
 
 this.addInput("Float", InputDataIdentifier.DELTA_TIME);
 
@@ -88,7 +112,7 @@ this.addOutput("Float", CameraDataIdentifier.TARGET_Z);
 
 const key_identifiers = Object.values(InputKeyIdentifier);
 
-for (var i = 0; i < key_identifiers.length; i++) {
+for (let i = 0; i < key_identifiers.length; i++) {
 
   const identifier = key_identifiers[i];
 
@@ -98,7 +122,7 @@ for (var i = 0; i < key_identifiers.length; i++) {
 
 const mesh_identifiers = Object.values(MeshIdentifier);
 
-for (var i = 0; i < mesh_identifiers.length; i++) {
+for (let i = 0; i < mesh_identifiers.length; i++) {
 
   const identifier = mesh_identifiers[i];
 
@@ -116,6 +140,23 @@ for (var i = 0; i < mesh_identifiers.length; i++) {
 
 };
 
+const heightmap_identifiers = Object.values(HeightMapIdentifier);
+
+for (const identifier of heightmap_identifiers) {
+
+  this.addOutput("SignalProcessing.Data.Signal", identifier + HeightMapFieldIdentifier.HEIGHTS);
+
+  this.addOutput("Integer", identifier + HeightMapFieldIdentifier.SIZE);
+  this.addOutput("Integer", identifier + HeightMapFieldIdentifier.HEIGHT_RESOLUTION);
+
+  this.addOutput("Float", identifier + HeightMapFieldIdentifier.MAXIMUM_HEIGHT);
+  this.addOutput("Float", identifier + HeightMapFieldIdentifier.MINIMUM_HEIGHT);
+
+
+  this.addOutput("Float", identifier + HeightMapFieldIdentifier.CENTER_X);
+  this.addOutput("Float", identifier + HeightMapFieldIdentifier.CENTER_Y);
+
+}
 
 Util = function () { }
 
@@ -133,7 +174,7 @@ Util.degreesToRadians = function (angle_in_degrees) {
 
 Util.interpolate_angle = function (alpha, a_old, a_new) {
 
-  var difference = a_new - a_old;
+  let difference = a_new - a_old;
 
   if (difference > Math.PI) {
 
@@ -176,7 +217,7 @@ InputSystem.prototype.getData = function (input_data_identifier) {
 
 InputSystem.prototype.getMeshData = function (mesh_identifier) {
 
-  return this._getInput(mesh_identifier + " Mesh Verticies");
+  return this._getInput(mesh_identifier + MeshFieldIdentifier.VERTICIES);
 
 }
 
@@ -223,7 +264,48 @@ OutputSystem.prototype.setEngineState = function (state) {
 
 }
 
-OutputSystem.prototype.render_mesh = function (mesh_identifier, positions, rotations, scales) {
+OutputSystem.prototype.render_heightmap = function (heightmap) {
+
+  const id = heightmap.identifier;
+
+  const field_node = (field) => this.plugin_node_object.getOutputNodeByName(id + field);
+ 
+  const output_node_heights = field_node(HeightMapFieldIdentifier.HEIGHTS);
+ 
+  const output_node_size = field_node(HeightMapFieldIdentifier.SIZE);
+  const output_node_height_resolution = field_node(HeightMapFieldIdentifier.HEIGHT_RESOLUTION);
+
+  const output_node_max_height = field_node(HeightMapFieldIdentifier.MAXIMUM_HEIGHT);
+  const output_node_min_height = field_node(HeightMapFieldIdentifier.MINIMUM_HEIGHT);
+ 
+  const output_node_center_x = field_node(HeightMapFieldIdentifier.CENTER_X);
+  const output_node_center_y = field_node(HeightMapFieldIdentifier.CENTER_Y);
+ 
+  output_node_heights.data = heightmap.mesh_heights;
+ 
+  output_node_size.data = heightmap.size;
+  output_node_height_resolution.data = heightmap.mesh_resolution;
+ 
+  output_node_max_height.data = heightmap.mesh_max_height / heightmap.size;
+  output_node_min_height.data = heightmap.mesh_min_height / heightmap.size;
+
+  output_node_center_x.data = heightmap.current_center.x;
+  output_node_center_y.data = heightmap.current_center.z;
+ 
+  output_node_heights.update();
+ 
+  output_node_size.update();
+  output_node_height_resolution.update();
+ 
+  output_node_max_height.update();
+  output_node_min_height.update();
+ 
+  output_node_center_x.update();
+  output_node_center_y.update();
+  
+};
+
+OutputSystem.prototype.render_meshes = function (mesh_identifier, positions, rotations, scales) {
 
   const number_of_meshes = positions.length;
 
@@ -251,7 +333,7 @@ OutputSystem.prototype.render_mesh = function (mesh_identifier, positions, rotat
 
   }
 
-  for (var i = 0; i < number_of_meshes; i++) {
+  for (let i = 0; i < number_of_meshes; i++) {
 
     output_node_positions_x.data[i] = positions[i].x;
     output_node_positions_y.data[i] = positions[i].z;
@@ -287,9 +369,23 @@ Vector3 = function (x = 0, y = 0, z = 0) {
 
 };
 
+Vector3.Constants = {
+
+  X_AXIS: Object.freeze(new Vector3(1, 0, 0)),
+  Y_AXIS: Object.freeze(new Vector3(0, 1, 0)),
+  Z_AXIS: Object.freeze(new Vector3(0, 0, 1))
+
+};
+
 Vector3.prototype.copy = function () {
 
   return new Vector3(this.x, this.y, this.z);
+
+};
+
+Vector3.prototype.equals = function (other) {
+
+  return this.x == other.x && this.y == other.y && this.z == other.z;
 
 };
 
@@ -429,13 +525,32 @@ Vector3.arrayFromFloatArray = function (float_array) {
   if (float_array.length % 3 != 0) return [];
 
   const vectors = [];
-  for (var i = 0; i < float_array.length; i += 3) {
-    const vector = new Vector3(float_array[i], float_array[i + 1], float_array[i + 2]);
+  for (let i = 0, len = float_array.length; i < len; i += 3) {
+    const vector = new Vector3(float_array[i], float_array[i + 2], float_array[i + 1]);
     vectors.push(vector)
   };
 
   return vectors
 
+};
+
+Vector3.dedupe_vector_array = function (vector_array, precision = 3) {
+
+  const seen_keys = new Set();
+  const unique_vectors = [];
+
+  for (const vector of vector_array) {
+
+    const key = vector.x.toFixed(precision) + "," + vector.y.toFixed(precision) + "," + vector.z.toFixed(precision);
+
+    if (!seen_keys.has(key)) {
+      seen_keys.add(key);
+      unique_vectors.push(vector);
+    }
+
+  }
+
+  return unique_vectors;
 };
 
 Vector3.interpolate_vectors = function (alpha, old_v, new_v) {
@@ -459,29 +574,24 @@ CollisionResult = function(has_collided, correction_vector, collision_point_a, c
 
     this.has_collided = has_collided;
     this.correction_vector = correction_vector;
-    this.collision_point_a = collision_point_a;
-    this.collision_point_b = collision_point_b;
 
 };
 
-
 GJK = new function(){};
 
-GJK._support_mapping = function(convex_shape_collider, direction) {
+GJK._furthest_point_in_direction = function(convex_shape_collider, direction) {
 
-  const X_AXIS = Vector3(1,0,0);
-  const Y_AXIS = Vector3(0,1,0);
-  const Z_AXIS = Vector3(0,0,1);
+  const vertice_count = convex_shape_collider.verticies.length;
 
   const local_direction = direction.copy()
-    .rotateAround(Z_AXIS, -convex_shape_collider.rotation.z)
-    .rotateAround(Y_AXIS, -convex_shape_collider.rotation.y)
-    .rotateAround(X_AXIS, -convex_shape_collider.rotation.x);
+    .rotateAround(Vector3.Constants.X_AXIS, -convex_shape_collider.rotation.x)
+    .rotateAround(Vector3.Constants.Y_AXIS, -convex_shape_collider.rotation.y)
+    .rotateAround(Vector3.Constants.Z_AXIS, -convex_shape_collider.rotation.z);
 
-  var max_point = convex_shape_collider.verticies[0];
-  var max_value = local_direction.dot(convex_shape_collider.verticies[0]);
+  let max_point = convex_shape_collider.verticies[0];
+  let max_value = local_direction.dot(convex_shape_collider.verticies[0]);
 
-  for(var i = 1; i < convex_shape_collider.verticies.length; i++){
+  for (let i = 1; i < vertice_count; i++)  {
 
     const point = convex_shape_collider.verticies[i];
     const value = local_direction.dot(point);
@@ -497,232 +607,529 @@ GJK._support_mapping = function(convex_shape_collider, direction) {
 
   const world_point = max_point.copy()
   .mult(convex_shape_collider.scale)
-  .rotateAround(X_AXIS, convex_shape_collider.rotation.x)
-  .rotateAround(Y_AXIS, convex_shape_collider.rotation.y)
-  .rotateAround(Z_AXIS, convex_shape_collider.rotation.z)
+  .rotateAround(Vector3.Constants.Z_AXIS, convex_shape_collider.rotation.z)
+  .rotateAround(Vector3.Constants.Y_AXIS, convex_shape_collider.rotation.y)
+  .rotateAround(Vector3.Constants.X_AXIS, convex_shape_collider.rotation.x)
   .add(convex_shape_collider.position);
 
   return world_point;
 
 };
 
-GJK._minkowski_difference_support_mapping = function(convex_shape_collider_a, convex_shape_collider_b, direction) {
+GJK._minkowski_difference = function(convex_shape_collider_a, convex_shape_collider_b, direction) {
 
-  const support_a = this._support_mapping(convex_shape_collider_a, direction);
-  const support_b = this._support_mapping(convex_shape_collider_b, direction.copy().mult(-1));
+  const support_a = this._furthest_point_in_direction(convex_shape_collider_a, direction);
+  const support_b = this._furthest_point_in_direction(convex_shape_collider_b, direction.copy().mult(-1));
 
   return support_a.sub(support_b);
 
 };
 
+GJK.Simplex = function() {
 
-GJK._get_line_simplex_suitable_for_expansion = function (direction, convex_shape_collider_a, convex_shape_collider_b) {
+  this.points = new Array(4);
+  this.size = 0;
 
-  const a = this._minkowski_difference_support_mapping(convex_shape_collider_a, convex_shape_collider_b, direction);
-  const b = this._minkowski_difference_support_mapping(convex_shape_collider_a, convex_shape_collider_b, direction.copy().mult(-1));
+  this.push_front = function(point) {
 
-  return [a, b];
-
-};
-
-GJK._get_perpendicular_triangle_vectors = function(a, b, c) {
-
-  const a_to_b = b.copy().sub(a);
-  const a_to_c = c.copy().sub(a);
-  const triangle_normal = a_to_b.cross(a_to_c);
-
-  return {
-
-    ab: a_to_b.cross(triangle_normal),
-    ac: triangle_normal.cross(a_to_c)
+    this.points[3] = this.points[2];
+    this.points[2] = this.points[1];
+    this.points[1] = this.points[0];
+    this.points[0] = point;
+    
+    this.size = Math.min(this.size + 1, 4);
 
   }
 
 }
 
-GJK._is_direction_similar = function(direction1, direction2) {
+GJK.is_same_direciton = function(v1, v2) {
 
-  return direction1.dot(direction2) > 0;
+  return v1.dot(v2) > 0;
+  
+}
+
+GJK._any_perpendicular = function (v) {
+
+  const axis = Math.abs(v.x) < 0.57 ? new Vector3(1, 0, 0) : new Vector3(0, 1, 0);
+
+  return v.cross(axis);
+
+};
+
+GJK.line = function(simplex, direction)
+{
+
+	const a = simplex.points[0];
+	const b = simplex.points[1];
+
+	const ab = b.copy().sub(a);
+	const ao = a.copy().mult(-1);
+ 
+	if (this.is_same_direciton(ab, ao)) {
+
+		const d = ab.cross(ao).cross(ab);
+
+		direction.copyOf(d.magSq() < 1e-12 ? this._any_perpendicular(ab) : d);
+
+	} else {
+
+		simplex.points = [a];
+    simplex.size = 1;
+		direction.copyOf(ao);
+
+	}
+
+	return false;
 
 }
 
-GJK._find_suitable_trianlge_simplex = function(triangle, convex_shape_collider_a, convex_shape_collider_b, iterations_left) {
+GJK.triangle = function (simplex, direction)
+{
 
-  if(iterations_left === 0) return null;
+	const a = simplex.points[0];
+	const b = simplex.points[1];
+	const c = simplex.points[2];
 
-  const perpendicular_triangle_vectors = this._get_perpendicular_triangle_vectors(triangle[0],triangle[1],triangle[2]);
-  const a_to_origin = new Vector3(0,0,0).sub(triangle[0]);
+	const ab = b.copy().sub(a);
+	const ac = c.copy().sub(a);
+	const ao = a.copy().mult(-1);
+ 
+	const abc = ab.cross(ac);
+ 
+	if (this.is_same_direciton(abc.cross(ac), ao)) {
 
-  if (this._is_direction_similar(perpendicular_triangle_vectors.ab, a_to_origin)) {
+		if (this.is_same_direciton(ac, ao)) {
 
-    const a = this._minkowski_difference_support_mapping(convex_shape_collider_a, convex_shape_collider_b, perpendicular_triangle_vectors.ab);
-    const b = triangle[0];
-    const c = triangle[1];
+			simplex.points = [a, c];
+      simplex.size = 2;
+			direction.copyOf(ac.cross(ao).cross(ac));
 
-    if(!this._is_direction_similar(a, perpendicular_triangle_vectors.ab)) return null;
+		}
 
-    return this._find_suitable_trianlge_simplex([a, b, c], convex_shape_collider_a, convex_shape_collider_b, iterations_left - 1);
+		else {
 
-  } else if(this._is_direction_similar(perpendicular_triangle_vectors.ac, a_to_origin)) {
-    
-    const a = this._minkowski_difference_support_mapping(convex_shape_collider_a, convex_shape_collider_b, perpendicular_triangle_vectors.ac)
-    const b = triangle[0];
-    const c = triangle[2];
+      simplex.points = [a, b];
+      simplex.size = 2;
 
-    if(!this._is_direction_similar(a, perpendicular_triangle_vectors.ac)) return null;
+			return this.line(simplex, direction);
 
-    return this._find_suitable_trianlge_simplex([a, b, c], convex_shape_collider_a, convex_shape_collider_b, iterations_left - 1);
-  
+		}
+
+	}
+ 
+	else {
+
+		if (this.is_same_direciton(ab.cross(abc), ao)) {
+
+      simplex.points = [a, b];
+      simplex.size = 2;
+
+			return this.line(simplex, direction);
+
+		}
+
+		else {
+
+			if (this.is_same_direciton(abc, ao)) {
+
+				direction.copyOf(abc);
+
+			}
+
+			else {
+
+        simplex.points = [a, c, b];
+        simplex.size = 3;
+				direction.copyOf(abc.mult(-1));
+
+			}
+
+		}
+	}
+
+	return false;
+}
+
+GJK.tetrahedron = function(simplex, direction)
+{
+	const a = simplex.points[0];
+	const b = simplex.points[1];
+	const c = simplex.points[2];
+	const d = simplex.points[3];
+
+	const ab = b.copy().sub(a);
+	const ac = c.copy().sub(a);
+	const ad = d.copy().sub(a);
+	const ao = a.copy().mult(-1);
+ 
+	const abc = ab.cross(ac);
+	const acd = ac.cross(ad);
+	const adb = ad.cross(ab);
+ 
+	if (this.is_same_direciton(abc, ao)) {
+
+    simplex.points = [a, b, c];
+    simplex.size = 3;
+
+		return this.triangle(simplex, direction);
+
+	}
+		
+	if (this.is_same_direciton(acd, ao)) {
+
+    simplex.points = [a, c, d];
+    simplex.size = 3;
+
+		return this.triangle(simplex, direction);
+
+	}
+ 
+	if (this.is_same_direciton(adb, ao)) {
+
+    simplex.points = [a, d, b];
+    simplex.size = 3;
+
+		return this.triangle(simplex, direction);
+
+	}
+ 
+	return true;
+
+}
+
+
+GJK.next_simplex = function(simplex, direction) {
+
+  switch (simplex.size) {
+    case 2:
+      return this.line(simplex, direction);
+      break;
+    case 3:
+      return this.triangle(simplex, direction);
+      break;
+    case 4:
+      return this.tetrahedron(simplex, direction);
+      break;
   }
 
-  return triangle;
-
 }
 
-GJK._get_triangle_simplex_suitable_for_expansion = function (line, convex_shape_collider_a, convex_shape_collider_b, max_iterations) {
-
-  var origin = new Vector3(0, 0, 0);
-  var perpendicular_vectors_line_origin_triangle = this._get_perpendicular_triangle_vectors(line[0], line[1], origin);
-
-  var a = this._minkowski_difference_support_mapping(convex_shape_collider_a, convex_shape_collider_b, perpendicular_vectors_line_origin_triangle.ab);
-  var b = line[0];
-  var c = line[1];
-
-  return this._find_suitable_trianlge_simplex([a, b, c], convex_shape_collider_a, convex_shape_collider_b, max_iterations);
-
-};
-
-GJK._get_triangle_normal = function(a,b,c) {
-
-  const a_to_b = b.copy().sub(a);
-  const a_to_c = c.copy().sub(a);
+GJK.build_simplex = function(convex_shape_collider_a, convex_shape_collider_b, max_iterations) {
   
-  return a_to_b.cross(a_to_c);
+  let support = this._minkowski_difference(convex_shape_collider_a, convex_shape_collider_b, new Vector3(1, 0.1, 0.1));
+  const simplex = new GJK.Simplex();
+  simplex.push_front(support);
 
-}
+  let direction = support.copy().mult(-1);
+  let iterations = 0;
 
-GJK._find_tetrahedron_containing_origin = function(tetrahedron, convex_shape_collider_a, convex_shape_collider_b, iterations_left) {
+  while(iterations < max_iterations) {
 
-    if(iterations_left === 0) return null;
+    support = this._minkowski_difference(convex_shape_collider_a, convex_shape_collider_b, direction);
 
-    const abc_triangle_normal = this._get_triangle_normal(tetrahedron[0], tetrahedron[1], tetrahedron[2]);
+    if(support.dot(direction) <= 0) {
+      return null;
+    }
 
-    var origin_to_a = new Vector3().sub(tetrahedron[0]);
+    simplex.push_front(support);
 
-    if (this._is_direction_similar(abc_triangle_normal, origin_to_a)) {
-
-      const a = this._minkowski_difference_support_mapping(convex_shape_collider_a, convex_shape_collider_b, abc_triangle_normal);
-      const b = tetrahedron[0];
-      const c = tetrahedron[1];
-      const d = tetrahedron[2];
-
-      return this._find_tetrahedron_containing_origin([a, b, c, d], convex_shape_collider_a, convex_shape_collider_b, iterations_left -1);
+    if(this.next_simplex(simplex, direction)) {
+      
+      return simplex;
 
     }
 
-    const acd_triangle_normal = this._get_triangle_normal(tetrahedron[0], tetrahedron[2], tetrahedron[3]);
+    iterations += 1;
 
-    if (this._is_direction_similar(acd_triangle_normal, origin_to_a)) {
-
-      const a = this._minkowski_difference_support_mapping(convex_shape_collider_a, convex_shape_collider_b, acd_triangle_normal.copy().mult(-1));
-      const b = tetrahedron[0];
-      const c = tetrahedron[3];
-      const d = tetrahedron[2];
-
-      return this._find_tetrahedron_containing_origin([a, b, c, d], convex_shape_collider_a, convex_shape_collider_b, iterations_left -1);
-    
-    }
-    
-    const adb_triangle_normal = this._get_triangle_normal(tetrahedron[0], tetrahedron[3], tetrahedron[1]);
-    
-    if (this._is_direction_similar(adb_triangle_normal, origin_to_a)) {
-
-      const a = this._minkowski_difference_support_mapping(convex_shape_collider_a, convex_shape_collider_b, adb_triangle_normal.copy().mult(-1));
-      const b = tetrahedron[0];
-      const c = tetrahedron[1];
-      const d = tetrahedron[3];
-
-      return this._find_tetrahedron_containing_origin([a, b, c, d], convex_shape_collider_a, convex_shape_collider_b, iterations_left -1);
-    
-    }
-
-    return tetrahedron;
-
-}
-
-GJK._expand_to_tetrahedron_containing_origin = function (triangle, convex_shape_collider_a, convex_shape_collider_b, max_iterations) {
-
-  var origin_to_a = triangle[0].copy().mult(-1);
-  var triangle_normal = this._get_triangle_normal(triangle[0], triangle[1], triangle[2]);
-
-  if (this._is_direction_similar(triangle_normal,origin_to_a)) {
-
-    const a = this._minkowski_difference_support_mapping(convex_shape_collider_a, convex_shape_collider_b, triangle_normal);
-    const b = triangle[0];
-    const c = triangle[1];
-    const d = triangle[2];
-
-    return this._find_tetrahedron_containing_origin([a,b,c,d],convex_shape_collider_a, convex_shape_collider_b, max_iterations);
-  
-  } else {
-
-    const a = this._minkowski_difference_support_mapping(convex_shape_collider_a, convex_shape_collider_b, triangle_normal.copy().mult(-1)); 
-    const b = triangle[0];
-    const c = triangle[2];
-    const d = triangle[1];
-    
-    return this._find_tetrahedron_containing_origin([a,b,c,d],convex_shape_collider_a, convex_shape_collider_b, max_iterations);
-  
   }
 
-  return this._find_tetrahedron_containing_origin([a,b,c,d],convex_shape_collider_a, convex_shape_collider_b, max_iterations);
+  return null;
 
 };
 
+EPA = new function () {};
 
-GJK.collide = function(convex_shape_collider_a, convex_shape_collider_b) {
+EPA.is_valid_simplex_for_expansion = function(simplex) {
 
-  const MAX_ITERATIONS = 32;
+  return simplex && simplex.size == 4;
 
-  const random_direction = new Vector3(Math.random(), Math.random(), Math.random()).normalize();
+}
 
-  const line_simplex = this._get_line_simplex_suitable_for_expansion(random_direction, convex_shape_collider_a, convex_shape_collider_b);
-  const triangle_simplex = this._get_triangle_simplex_suitable_for_expansion(line_simplex, convex_shape_collider_a, convex_shape_collider_b, MAX_ITERATIONS);
+EPA.get_verticies_from_simplex = function(simplex) {
+
+  const vertices = [];
+ 
+  for (let i = 0; i < 4; i++) {
+
+    vertices.push(simplex.points[i].copy());
+
+  }
+
+  return vertices;
+
+}
+
+EPA.get_point_inside_of_simplex = function(simplex) {
+
+  const interior = new Vector3();
+ 
+  for (let i = 0; i < 4; i++) {
+
+    interior.add(simplex.points[i]);
+
+  }
+ 
+  interior.mult(0.25);
+
+  return interior;
+
+}
+
+EPA.PolytopeFace = function(vertex_a, vertex_b, vertex_c, orientation_vertex) {
+
+  this.a = vertex_a.copy();
+  this.b = vertex_b.copy();
+  this.c = vertex_c.copy();
+
+  this.distance_to_origin = Infinity;
+
+  const unoriented_normal = this.b.copy().sub(this.a).cross(this.c.copy().sub(this.a));
+  const normal_length = unoriented_normal.mag();
   
-  if (triangle_simplex != null) {
+  this.is_degenerate = normal_length < 1e-9;
 
-    const tetrahedron = this._expand_to_tetrahedron_containing_origin(triangle_simplex, convex_shape_collider_a, convex_shape_collider_b, MAX_ITERATIONS);
+  if(this.is_degenerate) return;
+  
+  unoriented_normal.mult(1 / normal_length);
+
+  const needs_flip = unoriented_normal.dot(this.a.copy().sub(orientation_vertex)) < 0;
+
+  if (needs_flip) {
+
+    const tmp = this.b;
+    this.b = this.c;
+    this.c = tmp;
+
+  }
+
+  this.normal = unoriented_normal.mult(needs_flip? -1 : 1);
+  this.distance_to_origin = Math.max(0, this.normal.dot(this.a));
+
+}
+
+EPA.get_simplex_faces = function(simplex, interior) {
+
+  const vertex_a = simplex.points[0];
+  const vertex_b = simplex.points[1];
+  const vertex_c = simplex.points[2];
+  const vertex_d = simplex.points[3];
+
+  return [
+    new EPA.PolytopeFace(vertex_a, vertex_b, vertex_c, interior),
+    new EPA.PolytopeFace(vertex_a, vertex_d, vertex_b, interior),
+    new EPA.PolytopeFace(vertex_a, vertex_c, vertex_d, interior),
+    new EPA.PolytopeFace(vertex_b, vertex_d, vertex_c, interior)
+  ];
+
+}
+
+EPA._add_edge_or_remove_if_duplicate = function(edges, vertex_a, vertex_b) {
+
+  for (let i = 0; i < edges.length; i++) {
+
+      const edge_vertex_a = edges[i][0];
+      const edge_vertex_b = edges[i][1];
+
+      if (edge_vertex_a.equals(vertex_b) && edge_vertex_b.equals(vertex_a)) {
+
+        edges.splice(i, 1);
+        return;
+
+      }
+ 
+    }
+ 
+    edges.push([vertex_a, vertex_b]);
+
+}
+
+EPA.get_boundary_of_faces = function(faces) {
+
+  const boundary = [];
+
+  for (let i = 0; i < faces.length; i++) {
+ 
+    const face = faces[i];
+ 
+    EPA._add_edge_or_remove_if_duplicate(boundary, face.a, face.b);
+    EPA._add_edge_or_remove_if_duplicate(boundary, face.b, face.c);
+    EPA._add_edge_or_remove_if_duplicate(boundary, face.c, face.a);
+ 
+  }
+
+  return boundary;
+
+}
+
+EPA.build_faces_from_boundary_edges_and_vertex = function(boundary, vertex, polytope_interior) {
+
+    const faces = [];
+
+    for (let i = 0; i < boundary.length; i++) {
+ 
+      const edge = boundary[i];
+      const face = new EPA.PolytopeFace(edge[0], edge[1], vertex, polytope_interior);
+ 
+      if (face.is_degenerate) return null;
+      
+      faces.push(face);
+ 
+    }
+
+    return faces;
+
+}
+
+EPA.Polytope = function(simplex) {
+
+  this.vertices = EPA.get_verticies_from_simplex(simplex);
+  this.interior = EPA.get_point_inside_of_simplex(simplex);
+  this.faces = EPA.get_simplex_faces(simplex, this.interior);
+  this.is_degenerate = this.faces.some((face) => face.is_degenerate);
+
+  this.find_closest_face_to_origin = function() {
+
+    if(this.faces.length == 0) return null;
+
+    let closest = null;
+ 
+    for (let i = 0; i < this.faces.length; i++) {
+ 
+      const face = this.faces[i];
+ 
+      if (face.is_degenerate) continue;
+      
+      if (!closest || face.distance_to_origin < closest.distance_to_origin) {
+        closest = face;
+      }
+ 
+    }
+ 
+    return closest;
+
+  }
+
+  this.has_vertex = function(vertex) {
+
+    return this.vertices.some((existing) => existing.copy().sub(vertex).magSq() < 1e-6);
+
+  }
+
+  this.add_vertex = function(vertex) {
+
+    const visible_faces = [];
+    const kept_faces = [];
+ 
+    for (let i = 0; i < this.faces.length; i++) {
+ 
+      const face = this.faces[i];
+      const is_face_visible = face.normal.dot(vertex.copy().sub(face.a)) > 1e-7;
+ 
+      if (is_face_visible) {
+
+        visible_faces.push(face);
+
+      } else {
+
+        kept_faces.push(face);
+
+      }
+ 
+    }
+ 
+    if (visible_faces.length === 0) return false;
+
+    const visible_region_boundary_edges = EPA.get_boundary_of_faces(visible_faces);
+    const new_faces = EPA.build_faces_from_boundary_edges_and_vertex(visible_region_boundary_edges, vertex, this.interior);
     
-    if(tetrahedron) {
+    if(!new_faces) return false;
 
-      return new CollisionResult(true);
+    this.vertices.push(vertex);
+    this.faces = kept_faces.concat(new_faces);
+
+    return true;
+ 
+  }
+
+
+}
+
+EPA.result_from_polytope_face = function(polytopeface) {
+
+  return new CollisionResult(true, polytopeface.normal.copy().mult(-polytopeface.distance_to_origin));
+
+}
+
+
+EPA.get_collision = function(simplex, convex_shape_collider_a, convex_shape_collider_b, max_iterations) {
+ 
+  if (!EPA.is_valid_simplex_for_expansion(simplex)) return new CollisionResult(false);
+
+  const polytope = new EPA.Polytope(simplex);
+
+  if (polytope.is_degenerate) return new CollisionResult(true);
+
+
+  for (let iteration = 0; iteration < max_iterations; iteration++) {
+ 
+    const closest_polytope_face = polytope.find_closest_face_to_origin();
+ 
+    if (!closest_polytope_face) return new CollisionResult(true);
+
+    const furthest_point_along_normal = GJK._minkowski_difference(convex_shape_collider_a, convex_shape_collider_b, closest_polytope_face.normal);
+ 
+    const point_distance = furthest_point_along_normal.dot(closest_polytope_face.normal);
+
+    if (point_distance - closest_polytope_face.distance_to_origin < 1e-3 || polytope.has_vertex(furthest_point_along_normal)) {
+
+      return EPA.result_from_polytope_face(closest_polytope_face);
+
+    }
+ 
+    if(!polytope.add_vertex(furthest_point_along_normal)) {
+
+      return EPA.result_from_polytope_face(closest_polytope_face);
 
     }
 
   }
-  
-  return new CollisionResult(false);
 
+  const best_face = polytope.find_closest_face_to_origin();
+ 
+  if (!best_face) {
+
+    return new CollisionResult(true);
+
+  }
+ 
+  return EPA.result_from_polytope_face(best_face);
+ 
 };
 
-Entity = function (type, physics_body, controller) {
 
-  this.type = type;
-  this.physics_body = physics_body;
-  this.controller = controller;
-
-};
-
-PhysicsBody = function (collider, scale) {
+PhysicsBody = function (collider, scale, mass) {
 
   this.scale = scale;
 
-  this.positionOld = new Vector3();
+  this.mass = mass;
+
+  this.last_position = new Vector3();
   this.acceleration = new Vector3();
   this.velocity = new Vector3();
   this.position = new Vector3();
 
-  this.rotationOld = new Vector3();
+  this.last_rotation = new Vector3();
   this.angular_acceleration = new Vector3();
   this.angular_velocity = new Vector3();
   this.rotation = new Vector3();
@@ -733,47 +1140,13 @@ PhysicsBody = function (collider, scale) {
 
 PhysicsBody.prototype.applyForce = function (force) {
 
-  this.acceleration.add(force);
+  this.acceleration.addScaled(force, 1 / this.mass);
 
 };
 
 PhysicsBody.prototype.collide = function (other) {
 
-  const other_aabb = other.collider.transformed_aabb;
-  const self_aabb = this.collider.transformed_aabb;
-
-  const overlapX = Math.min(self_aabb.max.x, other_aabb.max.x) - Math.max(self_aabb.min.x, other_aabb.min.x);
-  const overlapY = Math.min(self_aabb.max.y, other_aabb.max.y) - Math.max(self_aabb.min.y, other_aabb.min.y);
-  const overlapZ = Math.min(self_aabb.max.z, other_aabb.max.z) - Math.max(self_aabb.min.z, other_aabb.min.z);
-
-  if (overlapX <= 0 || overlapY <= 0 || overlapZ <= 0) {
-
-    return new CollisionResult(false);
-
-  }
-
-  const min_overlap = Math.min(overlapX, overlapY, overlapZ);
-
-  var axis, sign;
-
-  if (overlapX < overlapY && overlapX < overlapZ) {
-
-    axis = new Vector3(1, 0, 0);
-    sign = (self_aabb.min.x + self_aabb.max.x) < (other_aabb.min.x + other_aabb.max.x) ? -1 : 1;
-
-  } else if (overlapY < overlapZ) {
-
-    axis = new Vector3(0, 1, 0);
-    sign = (self_aabb.min.y + self_aabb.max.y) < (other_aabb.min.y + other_aabb.max.y) ? -1 : 1;
-
-  } else {
-
-    axis = new Vector3(0, 0, 1);
-    sign = (self_aabb.min.z + self_aabb.max.z) < (other_aabb.min.z + other_aabb.max.z) ? -1 : 1;
-
-  }
-
-  return new CollisionResult(true, axis.mult(min_overlap * sign));
+  return this.collider.collide(other.collider);
 
 };
 
@@ -784,7 +1157,7 @@ AABB = function (mesh_points) {
 
   if (!mesh_points) return;
 
-  for (var i = 0; i < mesh_points.length; i++) {
+  for (let i = 0; i < mesh_points.length; i++) {
 
     const point = mesh_points[i];
 
@@ -797,10 +1170,6 @@ AABB = function (mesh_points) {
     this.max.z = Math.max(this.max.z, point.z);
 
   };
-
-  this.half_width = (this.max.x - this.min.x) / 2;
-  this.half_height = (this.max.y - this.min.y) / 2;
-  this.half_depth = (this.max.z - this.min.z) / 2;
 
 }
 
@@ -821,7 +1190,7 @@ AABB.prototype.recalculate = function (mesh_points) {
   this.min = new Vector3(Infinity, Infinity, Infinity);
   this.max = new Vector3(-Infinity, -Infinity, -Infinity);
 
-  for (var i = 0; i < mesh_points.length; i++) {
+  for (let i = 0; i < mesh_points.length; i++) {
 
     const point = mesh_points[i];
 
@@ -835,19 +1204,15 @@ AABB.prototype.recalculate = function (mesh_points) {
 
   }
 
-  this.half_width = (this.max.x - this.min.x) / 2;
-  this.half_height = (this.max.y - this.min.y) / 2;
-  this.half_depth = (this.max.z - this.min.z) / 2;
-
   return this;
 
 }
 
 AABBCollider = function (aabb) {
-
+  this.type = ColliderType.AABB;
   this.base_aabb = aabb;
 
-  this.corners = [
+  this.corner_points = [
     new Vector3(this.base_aabb.min.x, this.base_aabb.min.y, this.base_aabb.min.z),
     new Vector3(this.base_aabb.max.x, this.base_aabb.min.y, this.base_aabb.min.z),
     new Vector3(this.base_aabb.min.x, this.base_aabb.max.y, this.base_aabb.min.z),
@@ -861,53 +1226,77 @@ AABBCollider = function (aabb) {
 
   this.transformed_aabb = aabb.copy();
 
-  this.half_width = this.transformed_aabb.half_width;
-  this.half_depth = this.transformed_aabb.half_depth;
-  this.half_height = this.transformed_aabb.half_height;
-
 }
 
 AABBCollider.prototype.applyTransform = function (position, rotation, scale) {
 
-  const world_points = [];
-  const X_AXIS = new Vector3(1, 0, 0);
-  const Y_AXIS = new Vector3(0, 1, 0);
-  const Z_AXIS = new Vector3(0, 0, 1);
+  const transformed_corners = [];
 
-  for (let i = 0; i < this.corners.length; i++) {
+  for (const corner of this.corner_points) {
 
-    let p = this.corners[i].copy();
+    const transformed_corner = corner.copy()
+      .mult(scale)
+      .rotateAround(Vector3.Constants.Z_AXIS, rotation.z)
+      .rotateAround(Vector3.Constants.Y_AXIS, rotation.y)
+      .rotateAround(Vector3.Constants.X_AXIS, rotation.x)
+      .add(position);
 
-    // Apply scale
-    p.mult(scale);
+    transformed_corners.push(transformed_corner);
 
-    // Apply rotation
-    p.rotateAround(X_AXIS, rotation.x);
-    p.rotateAround(Y_AXIS, rotation.y);
-    p.rotateAround(Z_AXIS, rotation.z);
+  };
 
-    // Apply position
-    p.add(position);
+  this.transformed_aabb.recalculate(transformed_corners);
 
-    world_points.push(p);
+}
+
+AABBCollider.prototype.collide = function(other) {
+
+  const other_aabb = other.transformed_aabb;
+  const self_aabb = this.transformed_aabb;
+
+  const overlapX = Math.min(self_aabb.max.x, other_aabb.max.x) - Math.max(self_aabb.min.x, other_aabb.min.x);
+  const overlapY = Math.min(self_aabb.max.y, other_aabb.max.y) - Math.max(self_aabb.min.y, other_aabb.min.y);
+  const overlapZ = Math.min(self_aabb.max.z, other_aabb.max.z) - Math.max(self_aabb.min.z, other_aabb.min.z);
+
+  if (overlapX <= 0 || overlapY <= 0 || overlapZ <= 0) {
+
+    return new CollisionResult(false);
 
   }
 
+  const min_overlap = Math.min(overlapX, overlapY, overlapZ);
 
-  this.transformed_aabb.recalculate(world_points);
+  let axis, sign;
 
-  this.half_width = this.transformed_aabb.half_width;
-  this.half_depth = this.transformed_aabb.half_depth;
-  this.half_height = this.transformed_aabb.half_height;
+  if (overlapX < overlapY && overlapX < overlapZ) {
+
+    axis = new Vector3(1, 0, 0);
+    sign = (self_aabb.min.x + self_aabb.max.x) < (other_aabb.min.x + other_aabb.max.x) ? -1 : 1;
+
+  } else if (overlapY < overlapZ) {
+
+    axis = new Vector3(0, 1, 0);
+    sign = (self_aabb.min.y + self_aabb.max.y) < (other_aabb.min.y + other_aabb.max.y) ? -1 : 1;
+
+  } else {
+
+    axis = new Vector3(0, 0, 1);
+    sign = (self_aabb.min.z + self_aabb.max.z) < (other_aabb.min.z + other_aabb.max.z) ? -1 : 1;
+
+  }
+
+   return new CollisionResult(true, axis.mult(min_overlap * sign));
 
 }
 
 ConvexShapeCollider = function(verticies) {
 
+  this.type = ColliderType.CONVEX;
   this.verticies = verticies;
+
   this.position = new Vector3();
   this.rotation = new Vector3();
-  this.scale = 1;
+  this.scale = 0;
 
 }
 
@@ -919,38 +1308,286 @@ ConvexShapeCollider.prototype.applyTransform = function(position, rotation, scal
   
 }
 
-PhysicsBodySpatialGrid = function (resolution) {
+ConvexShapeCollider.prototype.collide = function(other) {
 
-  this.grid = [];
+  const simplex = GJK.build_simplex(this, other, 128);
+  const collision = EPA.get_collision(simplex, this, other, 128);
 
-  this.insert = function (body) {
-    this.grid.push(body)
-  }
+  return collision;
+ 
+}
 
-  this.clear = function () {
+CombinedCollider = function(mesh_info) {
 
-    this.grid = [];
+  this.type = ColliderType.COMBINED;
 
-  }
+  this.aabb_collider = new AABBCollider(mesh_info.AABB);
+  this.convex_shape_collider = new ConvexShapeCollider(mesh_info.Verticies);
 
 }
 
-PhysicsSystem = function (collision_iterations, collision_grid_resolution) {
+CombinedCollider.prototype.applyTransform = function(position, rotation, scale) {
 
-  this.collision_grid_resolution = collision_grid_resolution;
-  this.collision_iterations = collision_iterations;
-  this.grid = new PhysicsBodySpatialGrid(this.collision_grid_resolution);
+  this.aabb_collider.applyTransform(position, rotation, scale);
+  this.convex_shape_collider.applyTransform(position, rotation, scale);
+  
+}
 
-  this.step = function (entities, dt) {
+CombinedCollider.prototype.collide = function(other) {
 
-    this.grid.clear();
+  const aabb_collision = this.aabb_collider.collide(other.aabb_collider);
 
-    for (var i = 0; i < entities.length; i++) {
+  if(aabb_collision.has_collided) {
 
-      const body = entities[i].physics_body;
+    const convex_collision = this.convex_shape_collider.collide(other.convex_shape_collider);
 
-      body.positionOld = body.positionOld.copyOf(body.position);
-      body.rotationOld = body.rotationOld.copyOf(body.rotation);
+    return convex_collision.has_collided && !convex_collision.correction_vector? aabb_collision : convex_collision;
+
+  }
+
+  return new CollisionResult(false);
+
+}
+
+PerlinNoise2D = function (seed = 12345, detail = 1) {
+
+  let state = (Math.floor(seed) ^ 0x9E3779B9) >>> 0;
+
+  const random = function () {
+
+    state = (state + 0x6D2B79F5) >>> 0;
+
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+
+  };
+
+
+  const base = new Uint8Array(256);
+
+  for (let i = 0; i < 256; i++) base[i] = i;
+
+  for (let i = 255; i > 0; i--) {
+
+    const j = Math.floor(random() * (i + 1));
+    const tmp = base[i];
+    base[i] = base[j];
+    base[j] = tmp;
+
+  }
+
+  const perm = new Uint8Array(512);
+
+  for (let i = 0; i < 512; i++) perm[i] = base[i & 255];
+
+  const S = Math.SQRT1_2;
+  const GRAD_X = [1, -1, 0, 0, S, -S, S, -S];
+  const GRAD_Y = [0, 0, 1, -1, S, S, -S, -S];
+
+  const fade = function (t) {
+
+    return t * t * t * (t * (t * 6 - 15) + 10);
+
+  };
+
+  const lerp = function (a, b, t) {
+
+    return a + (b - a) * t;
+
+  };
+
+  const grad = function (hash, x, y) {
+
+    const index = hash & 7;
+
+    return GRAD_X[index] * x + GRAD_Y[index] * y;
+
+  };
+
+  this.sample_raw = function (a, b) {
+
+    const x = a * detail;
+    const y = b * detail;
+
+    const x_floor = Math.floor(x);
+    const y_floor = Math.floor(y);
+
+    const xf = x - x_floor;
+    const yf = y - y_floor;
+
+    const xi = x_floor & 255;
+    const yi = y_floor & 255;
+
+    const u = fade(xf);
+    const v = fade(yf);
+
+    const aa = perm[perm[xi] + yi];
+    const ab = perm[perm[xi] + yi + 1];
+    const ba = perm[perm[xi + 1] + yi];
+    const bb = perm[perm[xi + 1] + yi + 1];
+
+    const x1 = lerp(grad(aa, xf, yf), grad(ba, xf - 1, yf), u);
+    const x2 = lerp(grad(ab, xf, yf - 1), grad(bb, xf - 1, yf - 1), u);
+
+    return lerp(x1, x2, v) / 0.7071;
+
+  };
+
+  this.sample = function (a, b) {
+
+    const value = this.sample_raw(a, b) * 0.5 + 0.5;
+
+    return Math.min(1, Math.max(0, value));
+
+  };
+
+};
+
+HeightMap = function (identifier, size, mesh_resolution, mesh_max_height, mesh_min_height, seed) {
+ 
+  this.identifier = identifier;
+  this.seed = seed ? seed : 12233;
+ 
+  this.size = size;
+ 
+  this.mesh_resolution = mesh_resolution;
+  this.mesh_max_height = mesh_max_height;
+  this.mesh_min_height = mesh_min_height;
+ 
+  this.sample_spacing = size / mesh_resolution;
+ 
+  this.low_noise = new PerlinNoise2D(this.seed, 2.37 / size);
+  this.high_noise = new PerlinNoise2D(this.seed + 1, 6.13 / size);
+ 
+  this.mesh_heights = new Float32Array(mesh_resolution * mesh_resolution);
+ 
+  this.current_center;
+  this.current_tile;
+  this.has_recently_changed_tile = true; 
+ 
+  this.update = function (target) {
+ 
+    const snap = this.sample_spacing;
+    const center_x = Math.round(target.x / snap) * snap;
+    const center_z = Math.round(target.z / snap) * snap;
+ 
+    if (this.current_tile && center_x === this.current_tile.x && center_z === this.current_tile.z) return;
+ 
+    this.current_tile = new Vector3(center_x, 0, center_z);
+    this.current_center = target.copy();
+ 
+    this.rebuild();
+    this.has_recently_changed_tile = true;
+ 
+  };
+ 
+  this.rebuild = function () {
+ 
+    const res = this.mesh_resolution;
+    const min_h = this.mesh_min_height;
+    const range = (this.mesh_max_height - this.mesh_min_height) || 1;
+ 
+    for (let j = 0; j < res; j++) {
+ 
+      for (let i = 0; i < res; i++) {
+ 
+        const x = this.current_center.x + (i + 0.5 - res / 2) * this.sample_spacing;
+        const z = this.current_center.z + (j + 0.5 - res / 2) * this.sample_spacing;
+ 
+        this.mesh_heights[i + res * j] = (this.sample_height(x, z) - min_h) / range;
+ 
+      }
+ 
+    }
+
+  };
+ 
+  this.sample_height = function (x, z) {
+ 
+    const low = this.low_noise.sample(x, z);
+    const high = this.high_noise.sample(x, z);
+ 
+    const t = low * 0.8 + high * 0.2;
+ 
+    return this.mesh_min_height + t * (this.mesh_max_height - this.mesh_min_height);
+ 
+  };
+ 
+};
+
+HeightMapCollider = function(heightmap) {
+
+  this.heightmap = heightmap;
+
+  this.collide_convex = function(position, convex_shape_collider){
+    
+    return new CollisionResult(false);
+    
+  };
+
+  this.collide_aabb = function(position, aabb_collider) {
+
+    const collider_min_height = aabb_collider.transformed_aabb.min.y;
+    const heightmap_height = this.heightmap.sample_height(position.x, position.z);
+
+    if(collider_min_height > heightmap_height) {
+
+      return new CollisionResult(false);
+      
+    }
+
+    const upwards_correction = heightmap_height - collider_min_height;
+
+    return new CollisionResult(true, new Vector3(0, upwards_correction, 0));
+
+  };
+
+  this.collide_combined = function(position, combined_shape_collider) {
+
+    const aabb_collision = this.collide_aabb(position, combined_shape_collider.aabb_collider);
+
+    return aabb_collision;
+
+  };
+
+  this.collide = function(physics_body) {
+
+    switch(physics_body.collider.type) {
+      case ColliderType.AABB:
+        return this.collide_aabb(physics_body.position, physics_body.collider);
+      case ColliderType.CONVEX:
+        return this.collide_convex(physics_body.position, physics_body.collider);
+      case ColliderType.COMBINED:
+        return this.collide_combined(physics_body.position, physics_body.collider);
+      default:
+        return new CollisionResult(false);
+    };
+
+  };
+
+}
+
+Entity = function (type, physics_body, controller) {
+
+  this.type = type;
+  this.physics_body = physics_body;
+  this.controller = controller;
+
+};
+
+PhysicsSystem = function (collision_iterations) {
+
+  this.step = function (entities, statics, dt) {
+
+    for (const entity of entities) {
+
+      const body = entity.physics_body;
+
+      body.last_position = body.last_position.copyOf(body.position);
+      body.last_rotation = body.last_rotation.copyOf(body.rotation);
 
       body.velocity.addScaled(body.acceleration, dt);
       body.position.addScaled(body.velocity, dt);
@@ -962,25 +1599,48 @@ PhysicsSystem = function (collision_iterations, collision_grid_resolution) {
 
       body.collider.applyTransform(body.position, body.rotation, body.scale);
 
-      this.grid.insert(body);
+    }
+
+    for(let i = 0; i < collision_iterations; i++) {
+
+      this.resolveEntityCollisions(entities);
 
     }
 
-    for(var i = 0; i < this.collision_iterations; i++) {
-      this.resolveCollisions(entities);
-    }
+    this.resolveStaticCollisions(entities, statics);
 
   }
 
-  this.resolveCollisions = function (entities) {
+  this.resolveStaticCollisions = function (entities, statics) {
 
-    const tmp_vector = new Vector3();
+    for(const entity of entities) {
 
-    for (var i = 0; i < entities.length; i++) {
+      for(const static_body of statics) {
+
+        const collision = static_body.collide(entity.physics_body);
+
+        if(collision.has_collided) {
+
+          const b1 = entity.physics_body;
+
+          b1.position.add(collision.correction_vector);
+          b1.collider.applyTransform(b1.position, b1.rotation, b1.scale);
+
+        }
+
+      }
+
+    }
+
+  };
+
+  this.resolveEntityCollisions = function (entities) {
+
+    for (let i = 0; i < entities.length; i++) {
 
       const e1 = entities[i];
 
-      for (var j = i + 1; j < entities.length; j++) {
+      for (let j = i + 1; j < entities.length; j++) {
 
         const e2 = entities[j];
 
@@ -991,127 +1651,32 @@ PhysicsSystem = function (collision_iterations, collision_grid_resolution) {
 
         if (collision.has_collided) {
 
-          const norm_correction = collision.correction_vector.copy().normalize();
-
-          b1.position.add(tmp_vector.copyOf(collision.correction_vector).mult(0.5));
-          b2.position.add(tmp_vector.copyOf(collision.correction_vector).mult(-0.5));
+          b1.position.addScaled(collision.correction_vector, 0.5);
+          b2.position.addScaled(collision.correction_vector, -0.5);
 
           b1.collider.applyTransform(b1.position, b1.rotation, b1.scale);
           b2.collider.applyTransform(b2.position, b2.rotation, b2.scale);
 
-          var b1_correction_velocity_mag = -b1.velocity.dot(tmp_vector.copyOf(norm_correction));
-          var b2_correction_velocity_mag = -b2.velocity.dot(tmp_vector.copyOf(norm_correction));
-
-          if (b1_correction_velocity_mag > 0) {
-
-            b1.velocity.add(tmp_vector.copyOf(norm_correction).mult(b1_correction_velocity_mag));
-
-          };
-
-          if (b2_correction_velocity_mag < 0) {
-
-            b2.velocity.add(tmp_vector.copyOf(norm_correction).mult(b2_correction_velocity_mag));
-
-          };
-
           e1.controller.on_collision(e2);
           e2.controller.on_collision(e1);
 
-        }
+        };
 
       };
 
     };
 
-
-  }
-
-};
-
-PlayerController = function (input) {
-
-  this.MAX_MOTOR_ACCELERATION_STRENGTH = 10;
-  this.MAX_MOTOR_SPEED = 15;
-  this.MAX_MOTOR_DRAG = this.MAX_MOTOR_ACCELERATION_STRENGTH / (this.MAX_MOTOR_SPEED * this.MAX_MOTOR_SPEED);
-
-  this.updateBody = function (body) {
-
-    if (input.isKeydown(InputKeyIdentifier.LEFT) || input.isKeydown(InputKeyIdentifier.RIGHT)) {
-
-      const rotation_direction = new Vector3(0, input.isKeydown(InputKeyIdentifier.LEFT) ? 1 : -1, 0);
-      rotation_direction.mult(input.isKeydown(InputKeyIdentifier.BACKWARD) ? -1 : 1);
-      body.angular_velocity = rotation_direction;
-
-    } else {
-
-      body.angular_velocity.y = 0;
-
-    }
-
-    const current_speed_sq = body.velocity.magSq();
-    const motor_drag = body.velocity.copy().setMag(-this.MAX_MOTOR_DRAG * current_speed_sq);
-    motor_drag.y = 0;
-
-    body.applyForce(motor_drag);
-
-    if (input.isKeydown(InputKeyIdentifier.FORWARD) || input.isKeydown(InputKeyIdentifier.BACKWARD)) {
-
-      const global_upward = new Vector3(0, 1, 0);
-      const global_direction = new Vector3(0, 0, input.isKeydown(InputKeyIdentifier.FORWARD) ? 1 : -1);
-      const direction = global_direction.rotateAround(global_upward, -body.rotation.y);
-      const acceleration = direction.setMag(this.MAX_MOTOR_ACCELERATION_STRENGTH);
-
-      body.applyForce(acceleration);
-
-    };
-
-  }
-
-  this.on_collision = function (other) {
-
-  }
+  };
 
 };
-
-EnemyController = function (target_entity) {
-
-  this.MAX_MOTOR_ACCELERATION_STRENGTH = 9;
-  this.MAX_MOTOR_SPEED = 15;
-  this.MOTOR_DRAG = this.MAX_MOTOR_ACCELERATION_STRENGTH / (this.MAX_MOTOR_SPEED * this.MAX_MOTOR_SPEED);
-
-  this.updateBody = function (body) {
-
-    const current_speed_sq = body.velocity.magSq();
-    const drag = body.velocity.copy().setMag(-this.MOTOR_DRAG * current_speed_sq);
-    drag.y = 0;
-
-    body.applyForce(drag);
-
-    const target = target_entity.physics_body.position.copy();
-    const direction = target.addScaled(body.position, -1);
-    const acceleration = direction.setMag(this.MAX_MOTOR_ACCELERATION_STRENGTH);
-
-    body.applyForce(acceleration);
-
-
-    body.rotation.y = Math.atan2(body.velocity.z, body.velocity.x);
-
-  }
-
-  this.on_collision = function(other) {
-
-  }
-
-};
-
 
 ControllerSystem = function() {
 
   this.step = function (entities) {
 
-    for (var i = 0; i < entities.length; i++) {
+    for (const entity of entities) {
 
-      entities[i].controller.updateBody(entities[i].physics_body);
+      entity.controller.updateBody(entity.physics_body);
 
     }
 
@@ -1151,7 +1716,7 @@ SignalBusSystem = function() {
 
     const listner_callbacks = this.signals.get(signal_name);
 
-    for(var i = 0 ; i < listner_callbacks.length; i++) {
+    for(let i = 0 ; i < listner_callbacks.length; i++) {
 
       listner_callbacks[i](...args);
 
@@ -1159,7 +1724,7 @@ SignalBusSystem = function() {
 
   }
 
-}
+};
 
 Camera = function (distance, angle_x) {
 
@@ -1245,46 +1810,61 @@ Timer = function (time_in_seconds, repeat, callback) {
 
 };
 
-Engine = function(plugin_node_object, scene_setup) {
+Engine = function(plugin_node_object, run_custom_scene_setup) {
 
-  this.FIXED_TIME_STEP = 1 / 60
-  this.ENEMY_SPAWN_TIME = 0.5;
+  this.FIXED_TIME_STEP = 1 / 60;
+  this.PHYSICS_COLLISION_ITERATIONS = 3;
+
   this.MESH_INFO = new Map();
 
-  this.Meshes_Initialized = false;
+  this.Is_Initialized = false;
   this.Accumulator = 0;
   this.State = EngineStateType.LOADING;
 
   this.Input = new InputSystem(plugin_node_object);
   this.Output = new OutputSystem(plugin_node_object);
 
-  this.Physics = new PhysicsSystem(4, 10);
+  this.Physics = new PhysicsSystem(this.PHYSICS_COLLISION_ITERATIONS);
   this.Controller = new ControllerSystem();
   this.Camera = new Camera(10, Util.degreesToRadians(30));
   this.SignalBus = new SignalBusSystem();
   this.Timers = [];
 
+  this.HeightMaps = [];
+
   this.Entities = [];
+  this.Statics = [];
 
-  this.TemporaryVector = new Vector3();
-
-  this.initialize_meshes = function() {
-
-    if(this.Meshes_Initialized) return;
+  this.load_meshes = function() {
 
     const mesh_identifiers = Object.values(MeshIdentifier);
 
-    for (var i = 0; i < mesh_identifiers.length; i++) {
+    for (let i = 0; i < mesh_identifiers.length; i++) {
 
     const identifier = mesh_identifiers[i];
-    const mesh_verticies = this.Input.getMeshData(identifier);
-    const mesh_as_vectors = Vector3.arrayFromFloatArray(mesh_verticies);
+    const mesh_verticies_as_float_array = this.Input.getMeshData(identifier);
+    const mesh_as_vectors = Vector3.dedupe_vector_array(Vector3.arrayFromFloatArray(mesh_verticies_as_float_array));
+    
+    const ab = new AABB(mesh_as_vectors);
+    console.log(ab);
 
-    this.MESH_INFO.set(identifier, { Verticies: mesh_as_vectors, AABB: new AABB(mesh_as_vectors) });
+    this.MESH_INFO.set(identifier, { Verticies: mesh_as_vectors, AABB: ab });
 
     }
+    
+    console.log(this.MESH_INFO);
 
-    this.Meshes_Initialized = true;
+  }
+
+  this.create_heightmap = function (identifier, size, mesh_resolution, mesh_max_height, mesh_min_height, seed) {
+    
+    const heightMap = new HeightMap(identifier, size, mesh_resolution, mesh_max_height, mesh_min_height, seed);
+    const heightMapCollider = new HeightMapCollider(heightMap);
+
+    this.Statics.push(heightMapCollider);
+    this.HeightMaps.push(heightMap);
+
+    return heightMap;
 
   }
 
@@ -1292,33 +1872,32 @@ Engine = function(plugin_node_object, scene_setup) {
     
     const mesh_identifiers = Object.values(MeshIdentifier);
 
-    for (var i = 0; i < mesh_identifiers.length; i++) {
-
-      const identifier = mesh_identifiers[i];
+    for (const identifier of mesh_identifiers) {
 
       const entities_with_mesh = this.Entities.filter(x => x.type === identifier);
 
-      const array_size = Math.max(1, entities_with_mesh.length)
+      const output_size = Math.max(1, entities_with_mesh.length)
 
-      const interpolated_positions = new Array(array_size);
-      const interpolated_rotations = new Array(array_size);
-      const scales = new Array(array_size);
+      const interpolated_positions = new Array(output_size);
+      const interpolated_rotations = new Array(output_size);
+      const scales = new Array(output_size);
 
-      interpolated_positions[0] = new Vector3();
+      interpolated_positions[0] = new Vector3(Infinity, Infinity, Infinity);
       interpolated_rotations[0] = new Vector3();
       scales[0] = 0;
 
-      for (var j = 0; j < entities_with_mesh.length; j++) {
+      for (let i = 0; i < entities_with_mesh.length; i++) {
 
-        const entity = entities_with_mesh[j];
+        const entity = entities_with_mesh[i];
 
-        interpolated_positions[j] = Vector3.interpolate_vectors(alpha, entity.physics_body.positionOld, entity.physics_body.position);
-        interpolated_rotations[j] = Vector3.interpolate_rotation_vectors(alpha, entity.physics_body.rotationOld, entity.physics_body.rotation);
-        scales[j] = entity.physics_body.scale;
+        interpolated_positions[i] = Vector3.interpolate_vectors(alpha, entity.physics_body.last_position, entity.physics_body.position);
+        interpolated_rotations[i] = Vector3.interpolate_rotation_vectors(alpha, entity.physics_body.last_rotation, entity.physics_body.rotation);
+        scales[i] = entity.physics_body.scale;
 
       }
-
-      this.Output.render_mesh(identifier, interpolated_positions, interpolated_rotations, scales);
+      
+      
+      this.Output.render_meshes(identifier, interpolated_positions, interpolated_rotations, scales);
 
     }
 
@@ -1330,9 +1909,9 @@ Engine = function(plugin_node_object, scene_setup) {
 
     const deltaTime = this.Input.getData(InputDataIdentifier.DELTA_TIME) / 1000;
 
-    for (var i = 0; i < this.Timers.length; i++) {
+    for (const timer of this.Timers) {
 
-      this.Timers[i].tick(deltaTime);
+      timer.tick(deltaTime);
 
     }
 
@@ -1341,7 +1920,7 @@ Engine = function(plugin_node_object, scene_setup) {
     while (this.Accumulator >= this.FIXED_TIME_STEP) {
 
       this.Controller.step(this.Entities);
-      this.Physics.step(this.Entities, this.FIXED_TIME_STEP);
+      this.Physics.step(this.Entities, this.Statics, this.FIXED_TIME_STEP);
 
       this.Accumulator -= this.FIXED_TIME_STEP;
 
@@ -1350,21 +1929,34 @@ Engine = function(plugin_node_object, scene_setup) {
     const alpha = this.Accumulator / this.FIXED_TIME_STEP;
 
     const player_body = this.Entities.filter(x => x.type === MeshIdentifier.PLAYER)[0].physics_body;
-    const player_render_position = Vector3.interpolate_vectors(alpha, player_body.positionOld, player_body.position);
-    const player_render_rotation_y = Vector3.interpolate_vectors(alpha, player_body.rotationOld, player_body.rotation).y;
+    const player_render_position = Vector3.interpolate_vectors(alpha, player_body.last_position, player_body.position);
+    const player_render_rotation_y = Vector3.interpolate_vectors(alpha, player_body.last_rotation, player_body.rotation).y;
 
     this.Camera.update(player_render_position, player_render_rotation_y);
     this.Output.set_camera(this.Camera);
+    
+    for(const heightmap of this.HeightMaps) {
+
+      heightmap.update(player_body.position);
+
+      if (heightmap.has_recently_changed_tile) {
+
+        this.Output.render_heightmap(heightmap);
+        heightmap.has_recently_changed_tile = false;
+
+      }
+
+    }
 
     this.render_entities(alpha);
     this.Output.setEngineState(this.State);
 
   };
 
-  this.create_entity = function (mesh_identifier, controller, scale, position) {
+  this.create_entity = function (mesh_identifier, controller, scale, mass, position) {
 
-    const collider = new AABBCollider(this.MESH_INFO.get(mesh_identifier).AABB);
-    const body = new PhysicsBody(collider, scale);
+    const collider = new CombinedCollider(this.MESH_INFO.get(mesh_identifier));
+    const body = new PhysicsBody(collider, scale, mass);
     body.position = position ? position : body.position;
 
     const entity = new Entity(mesh_identifier, body, controller);
@@ -1374,11 +1966,26 @@ Engine = function(plugin_node_object, scene_setup) {
 
   };
 
-  this.initialize_scene = function() {
-    scene_setup(this);
+  this.setup_scene = function() {
+
+    run_custom_scene_setup(this);
     this.State = EngineStateType.GAME;
     this.Output.setEngineState(this.State);
+
   };
+
+  this.initialize = function() {
+
+    if(!this.Is_Initialized) {
+
+      this.load_meshes();
+      this.setup_scene();
+
+    }
+
+    this.Is_Initialized = true;
+
+  }
 
   this.Output.setEngineState(this.State);
 
@@ -1390,37 +1997,107 @@ engine = null;
 
 const plugin_node_object = this;
 
-function setup_scene(engine) {
+PlayerController = function (input) {
 
-  const player = engine.create_entity(MeshIdentifier.PLAYER, new PlayerController(engine.Input), 0.5);
+  this.MAX_MOTOR_ACCELERATION_STRENGTH = 10;
+  this.MAX_MOTOR_SPEED = 15;
+  this.MAX_MOTOR_DRAG = this.MAX_MOTOR_ACCELERATION_STRENGTH / (this.MAX_MOTOR_SPEED * this.MAX_MOTOR_SPEED);
+  this.GRAVITY = new Vector3(0,-1,0);
 
-  for (var i = 0; i < 100; i++) {
+  this.updateBody = function (body) {
+    
+    body.applyForce(this.GRAVITY);
 
-    engine.create_entity(MeshIdentifier.ENEMY, new EnemyController(player), 0.5, new Vector3((Math.random() - 0.5) * 500, 0, (Math.random() - 0.5) * 500));
+    if (input.isKeydown(InputKeyIdentifier.LEFT) || input.isKeydown(InputKeyIdentifier.RIGHT)) {
+
+      const rotation_direction = new Vector3(0, input.isKeydown(InputKeyIdentifier.LEFT) ? 1 : -1, 0);
+      rotation_direction.mult(input.isKeydown(InputKeyIdentifier.BACKWARD) ? -1 : 1);
+      body.angular_velocity = rotation_direction;
+
+    } else {
+
+      body.angular_velocity.y = 0;
+
+    }
+
+    const current_speed_sq = body.velocity.magSq();
+    const motor_drag = body.velocity.copy().setMag(-this.MAX_MOTOR_DRAG * current_speed_sq);
+    motor_drag.y = 0;
+
+    body.applyForce(motor_drag);
+
+    if (input.isKeydown(InputKeyIdentifier.FORWARD) || input.isKeydown(InputKeyIdentifier.BACKWARD)) {
+
+      const global_upward = new Vector3(0, 1, 0);
+      const global_direction = new Vector3(0, 0, input.isKeydown(InputKeyIdentifier.FORWARD) ? 1 : -1);
+      const direction = global_direction.rotateAround(global_upward, -body.rotation.y);
+      const acceleration = direction.setMag(this.MAX_MOTOR_ACCELERATION_STRENGTH);
+
+      body.applyForce(acceleration);
+
+    };
 
   }
 
-  const enemy_spawn_timer = new Timer(engine.ENEMY_SPAWN_TIME, true, () => engine.create_entity(MeshIdentifier.ENEMY, new EnemyController(player), 0.5, new Vector3((Math.random() - 0.5) * 500, 0, (Math.random() - 0.5) * 500)));
-  engine.Timers.push(enemy_spawn_timer)
+  this.on_collision = function (other) {
+    
+  }
 
 };
 
+EnemyController = function (target_entity) {
 
-if(DEBUG) {
-  console.log("Debug: \n");
-}
+  this.MAX_MOTOR_ACCELERATION_STRENGTH = 5;
+  this.MAX_MOTOR_SPEED = 5;
+  this.MOTOR_DRAG = this.MAX_MOTOR_ACCELERATION_STRENGTH / (this.MAX_MOTOR_SPEED * this.MAX_MOTOR_SPEED);
+
+  this.updateBody = function (body) {
+
+    const current_speed_sq = body.velocity.magSq();
+    const drag = body.velocity.copy().setMag(-this.MOTOR_DRAG * current_speed_sq);
+    drag.y = 0;
+
+    body.applyForce(drag);
+
+    const target = target_entity.physics_body.position.copy();
+    const direction = target.addScaled(body.position, -1);
+    const acceleration = direction.setMag(this.MAX_MOTOR_ACCELERATION_STRENGTH);
+
+    body.applyForce(acceleration);
+
+    body.rotation.y = Math.atan2(body.velocity.z, body.velocity.x) - Math.PI / 2;
+
+  }
+
+  this.on_collision = function(other) {
+
+  }
+
+};
+
+function custom_scene_setup(engine) {
+
+  const player = engine.create_entity(MeshIdentifier.PLAYER, new PlayerController(engine.Input), 1, 0.5);
+  const height_map = engine.create_heightmap(HeightMapIdentifier.WORLD, 1000, 10000, 50, -10, 1);
+
+  for (let i = 0; i < 10; i++) {
+
+    engine.create_entity(MeshIdentifier.ENEMY, new EnemyController(player), 0.5, 1, new Vector3(10, 0, 0));
+
+  }
+
+};
 
 if(!engine) {
-  engine = new Engine(plugin_node_object, setup_scene);
-}
-else if (!engine.Meshes_Initialized) {
 
-  engine.initialize_meshes();
-  engine.initialize_scene();
+  engine = new Engine(plugin_node_object, custom_scene_setup);
 
-}else{
+} else if (!engine.Is_Initialized) {
+
+  engine.initialize();
+
+} else {
 
   engine.loop();
 
 }
-
