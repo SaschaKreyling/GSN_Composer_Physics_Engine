@@ -3,11 +3,6 @@
 
 //Plugin Node init
 
-//Code for a Plugin Node in "GSN Composer" a Node based Rendering Software
-//Access to 2 Functions Init and Loop 
-
-//Plugin Node init
-
 this.onTick = function () {return true};
 
 DEBUG = false;
@@ -18,7 +13,7 @@ InputKeyIdentifier = {
   BACKWARD: "Backward",
   LEFT: "Left",
   RIGHT: "Right",
-  BREAKING: "Upward",
+  BRAKING: "Brake",
   SPECIAL: "Special"
 
 };
@@ -29,11 +24,11 @@ InputDataIdentifier = {
 
 };
 
-HeightMapIdentifier = {
+HeightmapIdentifier = {
   WORLD: "World"
 };
 
-HeightMapFieldIdentifier = {
+HeightmapFieldIdentifier = {
 
   SIZE: " Size", 
   HEIGHTS: " Heights",
@@ -54,7 +49,7 @@ MeshIdentifier = {
 
 MeshFieldIdentifier = {
   
-  VERTICIES: " Mesh Verticies",
+  VERTICES: " Mesh Vertices",
   POSITIONS_X: " Positions X",
   POSITIONS_Y: " Positions Y",
   POSITIONS_Z: " Positions Z",
@@ -126,7 +121,7 @@ for (let i = 0; i < mesh_identifiers.length; i++) {
 
   const identifier = mesh_identifiers[i];
 
-  this.addInput("SignalProcessing.Data.Signal", identifier + MeshFieldIdentifier.VERTICIES);
+  this.addInput("SignalProcessing.Data.Signal", identifier + MeshFieldIdentifier.VERTICES);
 
   this.addOutput("SignalProcessing.Data.Signal", identifier + MeshFieldIdentifier.POSITIONS_X);
   this.addOutput("SignalProcessing.Data.Signal", identifier + MeshFieldIdentifier.POSITIONS_Y);
@@ -140,33 +135,33 @@ for (let i = 0; i < mesh_identifiers.length; i++) {
 
 };
 
-const heightmap_identifiers = Object.values(HeightMapIdentifier);
+const heightmap_identifiers = Object.values(HeightmapIdentifier);
 
 for (const identifier of heightmap_identifiers) {
 
-  this.addOutput("SignalProcessing.Data.Signal", identifier + HeightMapFieldIdentifier.HEIGHTS);
+  this.addOutput("SignalProcessing.Data.Signal", identifier + HeightmapFieldIdentifier.HEIGHTS);
 
-  this.addOutput("Integer", identifier + HeightMapFieldIdentifier.SIZE);
-  this.addOutput("Integer", identifier + HeightMapFieldIdentifier.HEIGHT_RESOLUTION);
+  this.addOutput("Float", identifier + HeightmapFieldIdentifier.SIZE);
+  this.addOutput("Integer", identifier + HeightmapFieldIdentifier.HEIGHT_RESOLUTION);
 
-  this.addOutput("Float", identifier + HeightMapFieldIdentifier.MAXIMUM_HEIGHT);
-  this.addOutput("Float", identifier + HeightMapFieldIdentifier.MINIMUM_HEIGHT);
+  this.addOutput("Float", identifier + HeightmapFieldIdentifier.MAXIMUM_HEIGHT);
+  this.addOutput("Float", identifier + HeightmapFieldIdentifier.MINIMUM_HEIGHT);
 
 
-  this.addOutput("Float", identifier + HeightMapFieldIdentifier.CENTER_X);
-  this.addOutput("Float", identifier + HeightMapFieldIdentifier.CENTER_Y);
+  this.addOutput("Float", identifier + HeightmapFieldIdentifier.CENTER_X);
+  this.addOutput("Float", identifier + HeightmapFieldIdentifier.CENTER_Y);
 
 }
 
 Util = function () { }
 
-Util.radiansToDegrees = function (angle_in_radians) {
+Util.radians_to_degrees = function (angle_in_radians) {
 
   return 180 * angle_in_radians / Math.PI;
 
 }
 
-Util.degreesToRadians = function (angle_in_degrees) {
+Util.degrees_to_radians = function (angle_in_degrees) {
 
   return Math.PI * angle_in_degrees / 180;
 
@@ -197,27 +192,27 @@ InputSystem = function (plugin_node_object) {
 };
 
 
-InputSystem.prototype._getInput = function (input_identifier) {
+InputSystem.prototype._get_input = function (input_identifier) {
 
   return this.plugin_node_object.getInputDataByName(input_identifier);
 
 }
 
-InputSystem.prototype.isKeydown = function (input_key_identifier) {
+InputSystem.prototype.is_keydown = function (input_key_identifier) {
 
-  return this._getInput(input_key_identifier);
-
-}
-
-InputSystem.prototype.getData = function (input_data_identifier) {
-
-  return this._getInput(input_data_identifier);
+  return this._get_input(input_key_identifier);
 
 }
 
-InputSystem.prototype.getMeshData = function (mesh_identifier) {
+InputSystem.prototype.get_data = function (input_data_identifier) {
 
-  return this._getInput(mesh_identifier + MeshFieldIdentifier.VERTICIES);
+  return this._get_input(input_data_identifier);
+
+}
+
+InputSystem.prototype.get_mesh_data = function (mesh_identifier) {
+
+  return this._get_input(mesh_identifier + MeshFieldIdentifier.VERTICES);
 
 }
 
@@ -255,7 +250,7 @@ OutputSystem.prototype.set_camera = function (camera) {
 
 }
 
-OutputSystem.prototype.setEngineState = function (state) {
+OutputSystem.prototype.set_engine_state = function (state) {
 
   const output_node_engine_state = this.plugin_node_object.getOutputNodeByName(EngineDataIdentifier.STATE);
   output_node_engine_state.data = state;
@@ -270,24 +265,26 @@ OutputSystem.prototype.render_heightmap = function (heightmap) {
 
   const field_node = (field) => this.plugin_node_object.getOutputNodeByName(id + field);
  
-  const output_node_heights = field_node(HeightMapFieldIdentifier.HEIGHTS);
+  const output_node_heights = field_node(HeightmapFieldIdentifier.HEIGHTS);
  
-  const output_node_size = field_node(HeightMapFieldIdentifier.SIZE);
-  const output_node_height_resolution = field_node(HeightMapFieldIdentifier.HEIGHT_RESOLUTION);
+  const output_node_size = field_node(HeightmapFieldIdentifier.SIZE);
+  const output_node_height_resolution = field_node(HeightmapFieldIdentifier.HEIGHT_RESOLUTION);
 
-  const output_node_max_height = field_node(HeightMapFieldIdentifier.MAXIMUM_HEIGHT);
-  const output_node_min_height = field_node(HeightMapFieldIdentifier.MINIMUM_HEIGHT);
+  const output_node_max_height = field_node(HeightmapFieldIdentifier.MAXIMUM_HEIGHT);
+  const output_node_min_height = field_node(HeightmapFieldIdentifier.MINIMUM_HEIGHT);
  
-  const output_node_center_x = field_node(HeightMapFieldIdentifier.CENTER_X);
-  const output_node_center_y = field_node(HeightMapFieldIdentifier.CENTER_Y);
+  const output_node_center_x = field_node(HeightmapFieldIdentifier.CENTER_X);
+  const output_node_center_y = field_node(HeightmapFieldIdentifier.CENTER_Y);
  
   output_node_heights.data = heightmap.mesh_heights;
  
-  output_node_size.data = heightmap.size;
+  const half_size = heightmap.size / 2;
+ 
+  output_node_size.data = half_size;
   output_node_height_resolution.data = heightmap.mesh_resolution;
  
-  output_node_max_height.data = heightmap.mesh_max_height / heightmap.size;
-  output_node_min_height.data = heightmap.mesh_min_height / heightmap.size;
+  output_node_max_height.data = heightmap.mesh_max_height / half_size;
+  output_node_min_height.data = heightmap.mesh_min_height / half_size;
 
   output_node_center_x.data = heightmap.current_center.x;
   output_node_center_y.data = heightmap.current_center.z;
@@ -339,9 +336,9 @@ OutputSystem.prototype.render_meshes = function (mesh_identifier, positions, rot
     output_node_positions_y.data[i] = positions[i].z;
     output_node_positions_z.data[i] = positions[i].y;
 
-    output_node_rotations_x.data[i] = Util.radiansToDegrees(rotations[i].x);
-    output_node_rotations_y.data[i] = Util.radiansToDegrees(rotations[i].z);
-    output_node_rotations_z.data[i] = Util.radiansToDegrees(rotations[i].y);
+    output_node_rotations_x.data[i] = Util.radians_to_degrees(rotations[i].x);
+    output_node_rotations_y.data[i] = Util.radians_to_degrees(rotations[i].z);
+    output_node_rotations_z.data[i] = Util.radians_to_degrees(rotations[i].y);
 
     output_node_scale.data[i] = scales[i];
 
@@ -389,7 +386,7 @@ Vector3.prototype.equals = function (other) {
 
 };
 
-Vector3.prototype.copyOf = function (other) {
+Vector3.prototype.copy_of = function (other) {
 
   this.x = other.x;
   this.y = other.y;
@@ -419,7 +416,7 @@ Vector3.prototype.sub = function (other) {
 
 };
 
-Vector3.prototype.addScaled = function (other, scale) {
+Vector3.prototype.add_scaled = function (other, scale) {
 
   this.x += other.x * scale;
   this.y += other.y * scale;
@@ -455,13 +452,13 @@ Vector3.prototype.dot = function (other) {
 
 };
 
-Vector3.prototype.mag = function () {
+Vector3.prototype.magnitude = function () {
 
   return Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
 
 };
 
-Vector3.prototype.magSq = function () {
+Vector3.prototype.magnitude_squared = function () {
 
   return this.x * this.x + this.y * this.y + this.z * this.z;
 
@@ -469,11 +466,11 @@ Vector3.prototype.magSq = function () {
 
 Vector3.prototype.normalize = function () {
 
-  return this.setMag(1);
+  return this.set_magnitude(1);
 
 };
 
-Vector3.prototype.rotateAround = function (axis, angle) {
+Vector3.prototype.rotate_around = function (axis, angle) {
 
   const norm_axis = axis.copy().normalize();
   const sin = Math.sin(angle);
@@ -486,9 +483,9 @@ Vector3.prototype.rotateAround = function (axis, angle) {
 
 };
 
-Vector3.prototype.setMag = function (magnitude) {
+Vector3.prototype.set_magnitude = function (magnitude) {
 
-  const length = this.mag();
+  const length = this.magnitude();
 
   if (length === 0) {
 
@@ -506,7 +503,7 @@ Vector3.prototype.setMag = function (magnitude) {
 
 Vector3.prototype.limit = function (lim) {
 
-  const length = this.mag();
+  const length = this.magnitude();
 
   if (length <= lim) {
 
@@ -514,13 +511,13 @@ Vector3.prototype.limit = function (lim) {
 
   }
 
-  this.setMag(lim);
+  this.set_magnitude(lim);
 
   return this;
 
 };
 
-Vector3.arrayFromFloatArray = function (float_array) {
+Vector3.create_vector_array_from_float_array = function (float_array) {
 
   if (float_array.length % 3 != 0) return [];
 
@@ -534,7 +531,7 @@ Vector3.arrayFromFloatArray = function (float_array) {
 
 };
 
-Vector3.dedupe_vector_array = function (vector_array, precision = 3) {
+Vector3.remove_near_duplicates = function (vector_array, precision = 3) {
 
   const seen_keys = new Set();
   const unique_vectors = [];
@@ -553,10 +550,14 @@ Vector3.dedupe_vector_array = function (vector_array, precision = 3) {
   return unique_vectors;
 };
 
+Util.lerp = function (alpha, a, b) {
+  return a + (b - a) * alpha;
+}
+
 Vector3.interpolate_vectors = function (alpha, old_v, new_v) {
 
-  const difference = new_v.copy().addScaled(old_v, -1);
-  return old_v.copy().addScaled(difference, alpha);
+  const difference = new_v.copy().add_scaled(old_v, -1);
+  return old_v.copy().add_scaled(difference, alpha);
 
 }
 
@@ -570,10 +571,10 @@ Vector3.interpolate_rotation_vectors = function (alpha, old_v, new_v) {
 
 };
 
-CollisionResult = function(has_collided, correction_vector, collision_point_a, collision_point_b) {
+CollisionResult = function(has_collided, penetration, collision_point_a, collision_point_b) {
 
     this.has_collided = has_collided;
-    this.correction_vector = correction_vector;
+    this.penetration = penetration;
 
 };
 
@@ -581,19 +582,19 @@ GJK = new function(){};
 
 GJK._furthest_point_in_direction = function(convex_shape_collider, direction) {
 
-  const vertice_count = convex_shape_collider.verticies.length;
+  const vertex_count = convex_shape_collider.vertices.length;
 
   const local_direction = direction.copy()
-    .rotateAround(Vector3.Constants.X_AXIS, -convex_shape_collider.rotation.x)
-    .rotateAround(Vector3.Constants.Y_AXIS, -convex_shape_collider.rotation.y)
-    .rotateAround(Vector3.Constants.Z_AXIS, -convex_shape_collider.rotation.z);
+    .rotate_around(Vector3.Constants.X_AXIS, -convex_shape_collider.rotation.x)
+    .rotate_around(Vector3.Constants.Y_AXIS, -convex_shape_collider.rotation.y)
+    .rotate_around(Vector3.Constants.Z_AXIS, -convex_shape_collider.rotation.z);
 
-  let max_point = convex_shape_collider.verticies[0];
-  let max_value = local_direction.dot(convex_shape_collider.verticies[0]);
+  let max_point = convex_shape_collider.vertices[0];
+  let max_value = local_direction.dot(convex_shape_collider.vertices[0]);
 
-  for (let i = 1; i < vertice_count; i++)  {
+  for (let i = 1; i < vertex_count; i++)  {
 
-    const point = convex_shape_collider.verticies[i];
+    const point = convex_shape_collider.vertices[i];
     const value = local_direction.dot(point);
 
     if(value > max_value) {
@@ -607,9 +608,9 @@ GJK._furthest_point_in_direction = function(convex_shape_collider, direction) {
 
   const world_point = max_point.copy()
   .mult(convex_shape_collider.scale)
-  .rotateAround(Vector3.Constants.Z_AXIS, convex_shape_collider.rotation.z)
-  .rotateAround(Vector3.Constants.Y_AXIS, convex_shape_collider.rotation.y)
-  .rotateAround(Vector3.Constants.X_AXIS, convex_shape_collider.rotation.x)
+  .rotate_around(Vector3.Constants.Z_AXIS, convex_shape_collider.rotation.z)
+  .rotate_around(Vector3.Constants.Y_AXIS, convex_shape_collider.rotation.y)
+  .rotate_around(Vector3.Constants.X_AXIS, convex_shape_collider.rotation.x)
   .add(convex_shape_collider.position);
 
   return world_point;
@@ -643,7 +644,7 @@ GJK.Simplex = function() {
 
 }
 
-GJK.is_same_direciton = function(v1, v2) {
+GJK.is_same_direction = function(v1, v2) {
 
   return v1.dot(v2) > 0;
   
@@ -666,17 +667,17 @@ GJK.line = function(simplex, direction)
 	const ab = b.copy().sub(a);
 	const ao = a.copy().mult(-1);
  
-	if (this.is_same_direciton(ab, ao)) {
+	if (this.is_same_direction(ab, ao)) {
 
 		const d = ab.cross(ao).cross(ab);
 
-		direction.copyOf(d.magSq() < 1e-12 ? this._any_perpendicular(ab) : d);
+		direction.copy_of(d.magnitude_squared() < 1e-12 ? this._any_perpendicular(ab) : d);
 
 	} else {
 
 		simplex.points = [a];
     simplex.size = 1;
-		direction.copyOf(ao);
+		direction.copy_of(ao);
 
 	}
 
@@ -697,13 +698,13 @@ GJK.triangle = function (simplex, direction)
  
 	const abc = ab.cross(ac);
  
-	if (this.is_same_direciton(abc.cross(ac), ao)) {
+	if (this.is_same_direction(abc.cross(ac), ao)) {
 
-		if (this.is_same_direciton(ac, ao)) {
+		if (this.is_same_direction(ac, ao)) {
 
 			simplex.points = [a, c];
       simplex.size = 2;
-			direction.copyOf(ac.cross(ao).cross(ac));
+			direction.copy_of(ac.cross(ao).cross(ac));
 
 		}
 
@@ -720,7 +721,7 @@ GJK.triangle = function (simplex, direction)
  
 	else {
 
-		if (this.is_same_direciton(ab.cross(abc), ao)) {
+		if (this.is_same_direction(ab.cross(abc), ao)) {
 
       simplex.points = [a, b];
       simplex.size = 2;
@@ -731,9 +732,9 @@ GJK.triangle = function (simplex, direction)
 
 		else {
 
-			if (this.is_same_direciton(abc, ao)) {
+			if (this.is_same_direction(abc, ao)) {
 
-				direction.copyOf(abc);
+				direction.copy_of(abc);
 
 			}
 
@@ -741,7 +742,7 @@ GJK.triangle = function (simplex, direction)
 
         simplex.points = [a, c, b];
         simplex.size = 3;
-				direction.copyOf(abc.mult(-1));
+				direction.copy_of(abc.mult(-1));
 
 			}
 
@@ -767,7 +768,7 @@ GJK.tetrahedron = function(simplex, direction)
 	const acd = ac.cross(ad);
 	const adb = ad.cross(ab);
  
-	if (this.is_same_direciton(abc, ao)) {
+	if (this.is_same_direction(abc, ao)) {
 
     simplex.points = [a, b, c];
     simplex.size = 3;
@@ -776,7 +777,7 @@ GJK.tetrahedron = function(simplex, direction)
 
 	}
 		
-	if (this.is_same_direciton(acd, ao)) {
+	if (this.is_same_direction(acd, ao)) {
 
     simplex.points = [a, c, d];
     simplex.size = 3;
@@ -785,7 +786,7 @@ GJK.tetrahedron = function(simplex, direction)
 
 	}
  
-	if (this.is_same_direciton(adb, ao)) {
+	if (this.is_same_direction(adb, ao)) {
 
     simplex.points = [a, d, b];
     simplex.size = 3;
@@ -816,13 +817,15 @@ GJK.next_simplex = function(simplex, direction) {
 }
 
 GJK.build_simplex = function(convex_shape_collider_a, convex_shape_collider_b, max_iterations) {
+
+  const initial_direction = convex_shape_collider_a.position.copy().sub(convex_shape_collider_b.position);
   
-  let support = this._minkowski_difference(convex_shape_collider_a, convex_shape_collider_b, new Vector3(1, 0.1, 0.1));
+  var support = this._minkowski_difference(convex_shape_collider_a, convex_shape_collider_b, initial_direction);
   const simplex = new GJK.Simplex();
   simplex.push_front(support);
 
-  let direction = support.copy().mult(-1);
-  let iterations = 0;
+  var direction = support.copy().mult(-1);
+  var iterations = 0;
 
   while(iterations < max_iterations) {
 
@@ -856,7 +859,7 @@ EPA.is_valid_simplex_for_expansion = function(simplex) {
 
 }
 
-EPA.get_verticies_from_simplex = function(simplex) {
+EPA.get_vertices_from_simplex = function(simplex) {
 
   const vertices = [];
  
@@ -895,7 +898,7 @@ EPA.PolytopeFace = function(vertex_a, vertex_b, vertex_c, orientation_vertex) {
   this.distance_to_origin = Infinity;
 
   const unoriented_normal = this.b.copy().sub(this.a).cross(this.c.copy().sub(this.a));
-  const normal_length = unoriented_normal.mag();
+  const normal_length = unoriented_normal.magnitude();
   
   this.is_degenerate = normal_length < 1e-9;
 
@@ -993,7 +996,7 @@ EPA.build_faces_from_boundary_edges_and_vertex = function(boundary, vertex, poly
 
 EPA.Polytope = function(simplex) {
 
-  this.vertices = EPA.get_verticies_from_simplex(simplex);
+  this.vertices = EPA.get_vertices_from_simplex(simplex);
   this.interior = EPA.get_point_inside_of_simplex(simplex);
   this.faces = EPA.get_simplex_faces(simplex, this.interior);
   this.is_degenerate = this.faces.some((face) => face.is_degenerate);
@@ -1022,7 +1025,7 @@ EPA.Polytope = function(simplex) {
 
   this.has_vertex = function(vertex) {
 
-    return this.vertices.some((existing) => existing.copy().sub(vertex).magSq() < 1e-6);
+    return this.vertices.some((existing) => existing.copy().sub(vertex).magnitude_squared() < 1e-6);
 
   }
 
@@ -1065,9 +1068,9 @@ EPA.Polytope = function(simplex) {
 
 }
 
-EPA.result_from_polytope_face = function(polytopeface) {
+EPA.result_from_polytope_face = function(polytope_face) {
 
-  return new CollisionResult(true, polytopeface.normal.copy().mult(-polytopeface.distance_to_origin));
+  return new CollisionResult(true, polytope_face.normal.copy().mult(-polytope_face.distance_to_origin));
 
 }
 
@@ -1138,9 +1141,9 @@ PhysicsBody = function (collider, scale, mass) {
 
 };
 
-PhysicsBody.prototype.applyForce = function (force) {
+PhysicsBody.prototype.apply_force = function (force) {
 
-  this.acceleration.addScaled(force, 1 / this.mass);
+  this.acceleration.add_scaled(force, 1 / this.mass);
 
 };
 
@@ -1228,7 +1231,7 @@ AABBCollider = function (aabb) {
 
 }
 
-AABBCollider.prototype.applyTransform = function (position, rotation, scale) {
+AABBCollider.prototype.apply_transform = function (position, rotation, scale) {
 
   const transformed_corners = [];
 
@@ -1236,9 +1239,9 @@ AABBCollider.prototype.applyTransform = function (position, rotation, scale) {
 
     const transformed_corner = corner.copy()
       .mult(scale)
-      .rotateAround(Vector3.Constants.Z_AXIS, rotation.z)
-      .rotateAround(Vector3.Constants.Y_AXIS, rotation.y)
-      .rotateAround(Vector3.Constants.X_AXIS, rotation.x)
+      .rotate_around(Vector3.Constants.Z_AXIS, rotation.z)
+      .rotate_around(Vector3.Constants.Y_AXIS, rotation.y)
+      .rotate_around(Vector3.Constants.X_AXIS, rotation.x)
       .add(position);
 
     transformed_corners.push(transformed_corner);
@@ -1254,26 +1257,26 @@ AABBCollider.prototype.collide = function(other) {
   const other_aabb = other.transformed_aabb;
   const self_aabb = this.transformed_aabb;
 
-  const overlapX = Math.min(self_aabb.max.x, other_aabb.max.x) - Math.max(self_aabb.min.x, other_aabb.min.x);
-  const overlapY = Math.min(self_aabb.max.y, other_aabb.max.y) - Math.max(self_aabb.min.y, other_aabb.min.y);
-  const overlapZ = Math.min(self_aabb.max.z, other_aabb.max.z) - Math.max(self_aabb.min.z, other_aabb.min.z);
+  const overlap_x_axis = Math.min(self_aabb.max.x, other_aabb.max.x) - Math.max(self_aabb.min.x, other_aabb.min.x);
+  const overlap_y_axis = Math.min(self_aabb.max.y, other_aabb.max.y) - Math.max(self_aabb.min.y, other_aabb.min.y);
+  const overlap_z_axis = Math.min(self_aabb.max.z, other_aabb.max.z) - Math.max(self_aabb.min.z, other_aabb.min.z);
 
-  if (overlapX <= 0 || overlapY <= 0 || overlapZ <= 0) {
+  if (overlap_x_axis <= 0 || overlap_y_axis <= 0 || overlap_z_axis <= 0) {
 
     return new CollisionResult(false);
 
   }
 
-  const min_overlap = Math.min(overlapX, overlapY, overlapZ);
+  const min_overlap = Math.min(overlap_x_axis, overlap_y_axis, overlap_z_axis);
 
   let axis, sign;
 
-  if (overlapX < overlapY && overlapX < overlapZ) {
+  if (overlap_x_axis < overlap_y_axis && overlap_x_axis < overlap_z_axis) {
 
     axis = new Vector3(1, 0, 0);
     sign = (self_aabb.min.x + self_aabb.max.x) < (other_aabb.min.x + other_aabb.max.x) ? -1 : 1;
 
-  } else if (overlapY < overlapZ) {
+  } else if (overlap_y_axis < overlap_z_axis) {
 
     axis = new Vector3(0, 1, 0);
     sign = (self_aabb.min.y + self_aabb.max.y) < (other_aabb.min.y + other_aabb.max.y) ? -1 : 1;
@@ -1289,10 +1292,10 @@ AABBCollider.prototype.collide = function(other) {
 
 }
 
-ConvexShapeCollider = function(verticies) {
+ConvexShapeCollider = function(vertices) {
 
   this.type = ColliderType.CONVEX;
-  this.verticies = verticies;
+  this.vertices = vertices;
 
   this.position = new Vector3();
   this.rotation = new Vector3();
@@ -1300,7 +1303,7 @@ ConvexShapeCollider = function(verticies) {
 
 }
 
-ConvexShapeCollider.prototype.applyTransform = function(position, rotation, scale) {
+ConvexShapeCollider.prototype.apply_transform = function(position, rotation, scale) {
 
   this.position = position;
   this.rotation = rotation;
@@ -1317,19 +1320,19 @@ ConvexShapeCollider.prototype.collide = function(other) {
  
 }
 
-CombinedCollider = function(mesh_info) {
+CombinedCollider = function(mesh_information) {
 
   this.type = ColliderType.COMBINED;
 
-  this.aabb_collider = new AABBCollider(mesh_info.AABB);
-  this.convex_shape_collider = new ConvexShapeCollider(mesh_info.Verticies);
+  this.aabb_collider = new AABBCollider(mesh_information.AABB);
+  this.convex_shape_collider = new ConvexShapeCollider(mesh_information.VERTICES);
 
 }
 
-CombinedCollider.prototype.applyTransform = function(position, rotation, scale) {
+CombinedCollider.prototype.apply_transform = function(position, rotation, scale) {
 
-  this.aabb_collider.applyTransform(position, rotation, scale);
-  this.convex_shape_collider.applyTransform(position, rotation, scale);
+  this.aabb_collider.apply_transform(position, rotation, scale);
+  this.convex_shape_collider.apply_transform(position, rotation, scale);
   
 }
 
@@ -1341,7 +1344,7 @@ CombinedCollider.prototype.collide = function(other) {
 
     const convex_collision = this.convex_shape_collider.collide(other.convex_shape_collider);
 
-    return convex_collision.has_collided && !convex_collision.correction_vector? aabb_collision : convex_collision;
+    return convex_collision.has_collided && !convex_collision.penetration? aabb_collision : convex_collision;
 
   }
 
@@ -1351,13 +1354,14 @@ CombinedCollider.prototype.collide = function(other) {
 
 PerlinNoise2D = function (seed = 12345, detail = 1) {
 
-  let state = (Math.floor(seed) ^ 0x9E3779B9) >>> 0;
+  var state = (Math.floor(seed) ^ 0x9E3779B9) >>> 0;
 
-  const random = function () {
+  const seeded_random = function () {
 
     state = (state + 0x6D2B79F5) >>> 0;
 
-    let t = state;
+    var t = state;
+
     t = Math.imul(t ^ (t >>> 15), t | 1);
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
 
@@ -1368,11 +1372,11 @@ PerlinNoise2D = function (seed = 12345, detail = 1) {
 
   const base = new Uint8Array(256);
 
-  for (let i = 0; i < 256; i++) base[i] = i;
+  for (var i = 0; i < 256; i++) base[i] = i;
 
-  for (let i = 255; i > 0; i--) {
+  for (var i = 255; i > 0; i--) {
 
-    const j = Math.floor(random() * (i + 1));
+    const j = Math.floor(seeded_random() * (i + 1));
     const tmp = base[i];
     base[i] = base[j];
     base[j] = tmp;
@@ -1381,21 +1385,16 @@ PerlinNoise2D = function (seed = 12345, detail = 1) {
 
   const perm = new Uint8Array(512);
 
-  for (let i = 0; i < 512; i++) perm[i] = base[i & 255];
+  for (var i = 0; i < 512; i++) perm[i] = base[i & 255];
 
   const S = Math.SQRT1_2;
+
   const GRAD_X = [1, -1, 0, 0, S, -S, S, -S];
   const GRAD_Y = [0, 0, 1, -1, S, S, -S, -S];
 
   const fade = function (t) {
 
     return t * t * t * (t * (t * 6 - 15) + 10);
-
-  };
-
-  const lerp = function (a, b, t) {
-
-    return a + (b - a) * t;
 
   };
 
@@ -1429,10 +1428,10 @@ PerlinNoise2D = function (seed = 12345, detail = 1) {
     const ba = perm[perm[xi + 1] + yi];
     const bb = perm[perm[xi + 1] + yi + 1];
 
-    const x1 = lerp(grad(aa, xf, yf), grad(ba, xf - 1, yf), u);
-    const x2 = lerp(grad(ab, xf, yf - 1), grad(bb, xf - 1, yf - 1), u);
+    const x1 = Util.lerp(u, grad(aa, xf, yf), grad(ba, xf - 1, yf));
+    const x2 = Util.lerp(u, grad(ab, xf, yf - 1), grad(bb, xf - 1, yf - 1));
 
-    return lerp(x1, x2, v) / 0.7071;
+    return Util.lerp(v, x1, x2) / 0.7071;
 
   };
 
@@ -1446,7 +1445,7 @@ PerlinNoise2D = function (seed = 12345, detail = 1) {
 
 };
 
-HeightMap = function (identifier, size, mesh_resolution, mesh_max_height, mesh_min_height, seed) {
+Heightmap = function (identifier, size, mesh_resolution, mesh_max_height, mesh_min_height, seed) {
  
   this.identifier = identifier;
   this.seed = seed ? seed : 12233;
@@ -1470,34 +1469,35 @@ HeightMap = function (identifier, size, mesh_resolution, mesh_max_height, mesh_m
  
   this.update = function (target) {
  
-    const snap = this.sample_spacing;
-    const center_x = Math.round(target.x / snap) * snap;
-    const center_z = Math.round(target.z / snap) * snap;
+    const center_x = Math.round(target.x / this.sample_spacing) * this.sample_spacing;
+    const center_z = Math.round(target.z / this.sample_spacing) * this.sample_spacing;
  
     if (this.current_tile && center_x === this.current_tile.x && center_z === this.current_tile.z) return;
  
     this.current_tile = new Vector3(center_x, 0, center_z);
-    this.current_center = target.copy();
+    this.current_center = this.current_tile;
  
     this.rebuild();
+
     this.has_recently_changed_tile = true;
  
   };
  
   this.rebuild = function () {
  
-    const res = this.mesh_resolution;
-    const min_h = this.mesh_min_height;
-    const range = (this.mesh_max_height - this.mesh_min_height) || 1;
+    const range = this.mesh_max_height - this.mesh_min_height;
+    const half_width_offset = - this.mesh_resolution / 2;
  
-    for (let j = 0; j < res; j++) {
+    for (let j = 0; j < this.mesh_resolution; j++) {
+      
+      const z = this.current_tile.z + (j + half_width_offset) * this.sample_spacing;
+      const index_offset = this.mesh_resolution * j;
+
+      for (let i = 0; i < this.mesh_resolution; i++) {
  
-      for (let i = 0; i < res; i++) {
+        const x = this.current_tile.x + (i + half_width_offset) * this.sample_spacing;
  
-        const x = this.current_center.x + (i + 0.5 - res / 2) * this.sample_spacing;
-        const z = this.current_center.z + (j + 0.5 - res / 2) * this.sample_spacing;
- 
-        this.mesh_heights[i + res * j] = (this.sample_height(x, z) - min_h) / range;
+        this.mesh_heights[i + index_offset] = (this.sample_height(x, z) - this.mesh_min_height) / range;
  
       }
  
@@ -1505,20 +1505,62 @@ HeightMap = function (identifier, size, mesh_resolution, mesh_max_height, mesh_m
 
   };
  
-  this.sample_height = function (x, z) {
+  this.sample_height = function (x, z, use_precalculated = false) {
+
+    if (use_precalculated && this.current_tile) {
+
+      const half_resolution = this.mesh_resolution / 2;
+
+      const relative_x = (x - this.current_tile.x) / this.sample_spacing + half_resolution;
+      const closest_lowest_x = Math.floor(relative_x);
+      const closest_highest_x = closest_lowest_x + 1;
+      const is_x_precalculated = closest_lowest_x >= 0 && closest_lowest_x < this.mesh_resolution && closest_highest_x >= 0 && closest_highest_x < this.mesh_resolution;
+
+      if(is_x_precalculated) {
+
+        const relative_z = (z - this.current_tile.z) / this.sample_spacing + half_resolution;
+        const closest_lowest_z = Math.floor(relative_z);
+        const closest_highest_z = closest_lowest_z + 1;
+        const is_z_precalculated = closest_lowest_z >= 0 && closest_lowest_z < this.mesh_resolution && closest_highest_z >= 0 && closest_highest_z < this.mesh_resolution;
+        
+        
+        if (is_z_precalculated) {
+
+          const offset_x = relative_x - closest_lowest_x;
+          const offset_z = relative_z - closest_lowest_z;
+
+          const top_left =      this.mesh_heights[closest_lowest_x  + this.mesh_resolution * closest_lowest_z ];
+          const top_right =     this.mesh_heights[closest_highest_x + this.mesh_resolution * closest_lowest_z ];
+          const bottom_left =   this.mesh_heights[closest_lowest_x  + this.mesh_resolution * closest_highest_z];
+          const bottom_right =  this.mesh_heights[closest_highest_x + this.mesh_resolution * closest_highest_z];
+
+          const left_right_top =    Util.lerp(offset_x, top_left      , top_right        );
+          const left_right_bottom = Util.lerp(offset_x, bottom_left   , bottom_right     );
+          const non_scaled_height = Util.lerp(offset_z, left_right_top, left_right_bottom);
+
+          const scaled_height = this.mesh_min_height + non_scaled_height * (this.mesh_max_height - this.mesh_min_height);
+
+          return scaled_height
+
+        }
+
+      }
+
+    }
  
     const low = this.low_noise.sample(x, z);
     const high = this.high_noise.sample(x, z);
  
-    const t = low * 0.8 + high * 0.2;
- 
-    return this.mesh_min_height + t * (this.mesh_max_height - this.mesh_min_height);
+    const non_scaled_height = low * 0.8 + high * 0.2;
+    const scaled_height = this.mesh_min_height + non_scaled_height * (this.mesh_max_height - this.mesh_min_height);
+
+    return scaled_height
  
   };
  
 };
 
-HeightMapCollider = function(heightmap) {
+HeightmapCollider = function(heightmap) {
 
   this.heightmap = heightmap;
 
@@ -1531,7 +1573,7 @@ HeightMapCollider = function(heightmap) {
   this.collide_aabb = function(position, aabb_collider) {
 
     const collider_min_height = aabb_collider.transformed_aabb.min.y;
-    const heightmap_height = this.heightmap.sample_height(position.x, position.z);
+    const heightmap_height = this.heightmap.sample_height(position.x, position.z, true);
 
     if(collider_min_height > heightmap_height) {
 
@@ -1540,8 +1582,9 @@ HeightMapCollider = function(heightmap) {
     }
 
     const upwards_correction = heightmap_height - collider_min_height;
-
-    return new CollisionResult(true, new Vector3(0, upwards_correction, 0));
+    const collision_penetration = new Vector3(0, upwards_correction, 0);
+    
+    return new CollisionResult(true, collision_penetration);
 
   };
 
@@ -1556,19 +1599,28 @@ HeightMapCollider = function(heightmap) {
   this.collide = function(physics_body) {
 
     switch(physics_body.collider.type) {
+
       case ColliderType.AABB:
+
         return this.collide_aabb(physics_body.position, physics_body.collider);
+
       case ColliderType.CONVEX:
+
         return this.collide_convex(physics_body.position, physics_body.collider);
+
       case ColliderType.COMBINED:
+
         return this.collide_combined(physics_body.position, physics_body.collider);
+
       default:
+        
         return new CollisionResult(false);
+
     };
 
   };
 
-}
+};
 
 Entity = function (type, physics_body, controller) {
 
@@ -1586,32 +1638,32 @@ PhysicsSystem = function (collision_iterations) {
 
       const body = entity.physics_body;
 
-      body.last_position = body.last_position.copyOf(body.position);
-      body.last_rotation = body.last_rotation.copyOf(body.rotation);
+      body.last_position = body.last_position.copy_of(body.position);
+      body.last_rotation = body.last_rotation.copy_of(body.rotation);
 
-      body.velocity.addScaled(body.acceleration, dt);
-      body.position.addScaled(body.velocity, dt);
+      body.velocity.add_scaled(body.acceleration, dt);
+      body.position.add_scaled(body.velocity, dt);
       body.acceleration.mult(0);
 
-      body.angular_velocity.addScaled(body.angular_acceleration, dt);
-      body.rotation.addScaled(body.angular_velocity, dt);
+      body.angular_velocity.add_scaled(body.angular_acceleration, dt);
+      body.rotation.add_scaled(body.angular_velocity, dt);
       body.angular_acceleration.mult(0);
 
-      body.collider.applyTransform(body.position, body.rotation, body.scale);
+      body.collider.apply_transform(body.position, body.rotation, body.scale);
 
     }
 
     for(let i = 0; i < collision_iterations; i++) {
 
-      this.resolveEntityCollisions(entities);
+      this.resolve_entity_collisions(entities);
 
     }
 
-    this.resolveStaticCollisions(entities, statics);
+    this.resolve_static_collisions(entities, statics);
 
   }
 
-  this.resolveStaticCollisions = function (entities, statics) {
+  this.resolve_static_collisions = function (entities, statics) {
 
     for(const entity of entities) {
 
@@ -1623,8 +1675,9 @@ PhysicsSystem = function (collision_iterations) {
 
           const b1 = entity.physics_body;
 
-          b1.position.add(collision.correction_vector);
-          b1.collider.applyTransform(b1.position, b1.rotation, b1.scale);
+          b1.position.add(collision.penetration);
+          b1.velocity.y = 0;
+          b1.collider.apply_transform(b1.position, b1.rotation, b1.scale);
 
         }
 
@@ -1634,7 +1687,7 @@ PhysicsSystem = function (collision_iterations) {
 
   };
 
-  this.resolveEntityCollisions = function (entities) {
+  this.resolve_entity_collisions = function (entities) {
 
     for (let i = 0; i < entities.length; i++) {
 
@@ -1651,11 +1704,11 @@ PhysicsSystem = function (collision_iterations) {
 
         if (collision.has_collided) {
 
-          b1.position.addScaled(collision.correction_vector, 0.5);
-          b2.position.addScaled(collision.correction_vector, -0.5);
+          b1.position.add_scaled(collision.penetration, 0.5);
+          b2.position.add_scaled(collision.penetration, -0.5);
 
-          b1.collider.applyTransform(b1.position, b1.rotation, b1.scale);
-          b2.collider.applyTransform(b2.position, b2.rotation, b2.scale);
+          b1.collider.apply_transform(b1.position, b1.rotation, b1.scale);
+          b2.collider.apply_transform(b2.position, b2.rotation, b2.scale);
 
           e1.controller.on_collision(e2);
           e2.controller.on_collision(e1);
@@ -1676,7 +1729,7 @@ ControllerSystem = function() {
 
     for (const entity of entities) {
 
-      entity.controller.updateBody(entity.physics_body);
+      entity.controller.update_body(entity.physics_body);
 
     }
 
@@ -1714,11 +1767,11 @@ SignalBusSystem = function() {
       return;
     }
 
-    const listner_callbacks = this.signals.get(signal_name);
+    const listener_callbacks = this.signals.get(signal_name);
 
-    for(let i = 0 ; i < listner_callbacks.length; i++) {
+    for(let i = 0 ; i < listener_callbacks.length; i++) {
 
-      listner_callbacks[i](...args);
+      listener_callbacks[i](...args);
 
     }
 
@@ -1730,37 +1783,38 @@ Camera = function (distance, angle_x) {
 
   this.position = new Vector3();
   this.target = new Vector3();
+  this.direction = new Vector3();
 
   this.distance = distance;
   this.angle_x = angle_x;
   this.angle_y = 0;
 
   this.offset = new Vector3();
-  this.X_AXIS = new Vector3(1, 0, 0);
-  this.Y_AXIS = new Vector3(0, 1, 0)
 
   this.update = function (target, angle_y) {
 
-    this.target = this.target.copyOf(target);
+    this.target = this.target.copy_of(target);
     this.angle_y = angle_y;
 
     this.offset.mult(0);
     this.offset.z = -this.distance;
-    this.offset.rotateAround(this.X_AXIS, this.angle_x);
-    this.offset.rotateAround(this.Y_AXIS, -this.angle_y);
+    this.offset.rotate_around(Vector3.Constants.X_AXIS, this.angle_x);
+    this.offset.rotate_around(Vector3.Constants.Y_AXIS, -this.angle_y);
 
-    this.position = this.position.copyOf(this.target);
+    this.position = this.position.copy_of(this.target);
     this.position.add(this.offset);
+
+    this.direction = this.direction.copy_of(this.target).sub(this.position);
 
   }
 
-  this.setDistance = function (distance) {
+  this.set_distance = function (distance) {
 
     this.distance = distance;
 
   }
 
-  this.setAngleX = function (angle) {
+  this.set_angle_x = function (angle) {
 
     this.angle_x = angle;
 
@@ -1770,13 +1824,13 @@ Camera = function (distance, angle_x) {
 
 Timer = function (time_in_seconds, repeat, callback) {
 
-  this.currentTime = 0;
+  this.current_time = 0;
   this.time_in_seconds = time_in_seconds;
   this.repeat = repeat;
   this.callback = callback;
   this.finished = false;
 
-  this.tick = function (deltaTime) {
+  this.tick = function (delta_time) {
 
     if (this.finished) {
 
@@ -1784,9 +1838,9 @@ Timer = function (time_in_seconds, repeat, callback) {
 
     }
 
-    this.currentTime += deltaTime;
+    this.current_time += delta_time;
 
-    if (this.currentTime >= this.time_in_seconds) {
+    if (this.current_time >= this.time_in_seconds) {
 
       if (!this.repeat) {
 
@@ -1794,7 +1848,7 @@ Timer = function (time_in_seconds, repeat, callback) {
 
       } else {
 
-        this.currentTime -= this.time_in_seconds;
+        this.current_time -= this.time_in_seconds;
 
       }
 
@@ -1813,27 +1867,28 @@ Timer = function (time_in_seconds, repeat, callback) {
 Engine = function(plugin_node_object, run_custom_scene_setup) {
 
   this.FIXED_TIME_STEP = 1 / 60;
+  this.MAX_DELTA_TIME = 5 * this.FIXED_TIME_STEP;
   this.PHYSICS_COLLISION_ITERATIONS = 3;
 
-  this.MESH_INFO = new Map();
+  this.mesh_information = new Map();
 
-  this.Is_Initialized = false;
-  this.Accumulator = 0;
-  this.State = EngineStateType.LOADING;
+  this.is_initialized = false;
+  this.time_accumulator = 0;
+  this.current_state = EngineStateType.LOADING;
 
-  this.Input = new InputSystem(plugin_node_object);
-  this.Output = new OutputSystem(plugin_node_object);
+  this.input_system = new InputSystem(plugin_node_object);
+  this.output_system = new OutputSystem(plugin_node_object);
 
-  this.Physics = new PhysicsSystem(this.PHYSICS_COLLISION_ITERATIONS);
-  this.Controller = new ControllerSystem();
-  this.Camera = new Camera(10, Util.degreesToRadians(30));
-  this.SignalBus = new SignalBusSystem();
-  this.Timers = [];
+  this.physics_system = new PhysicsSystem(this.PHYSICS_COLLISION_ITERATIONS);
+  this.controller_system = new ControllerSystem();
+  this.main_camera = new Camera(10, Util.degrees_to_radians(30));
+  this.signal_bus = new SignalBusSystem();
+  this.active_timers = [];
 
-  this.HeightMaps = [];
+  this.heightmaps = [];
 
-  this.Entities = [];
-  this.Statics = [];
+  this.active_entities = [];
+  this.active_statics = [];
 
   this.load_meshes = function() {
 
@@ -1842,29 +1897,39 @@ Engine = function(plugin_node_object, run_custom_scene_setup) {
     for (let i = 0; i < mesh_identifiers.length; i++) {
 
     const identifier = mesh_identifiers[i];
-    const mesh_verticies_as_float_array = this.Input.getMeshData(identifier);
-    const mesh_as_vectors = Vector3.dedupe_vector_array(Vector3.arrayFromFloatArray(mesh_verticies_as_float_array));
-    
-    const ab = new AABB(mesh_as_vectors);
-    console.log(ab);
 
-    this.MESH_INFO.set(identifier, { Verticies: mesh_as_vectors, AABB: ab });
+    const mesh_vertices_as_float_array = this.input_system.get_mesh_data(identifier);
+    const mesh_as_vectors = Vector3.create_vector_array_from_float_array(mesh_vertices_as_float_array);
+    const mesh_as_vectors_without_duplicates = Vector3.remove_near_duplicates(mesh_as_vectors);
+    
+    const axis_aligned_bounding_box = new AABB(mesh_as_vectors_without_duplicates);
+
+    this.mesh_information.set(
+      identifier,
+      {
+        IDENTIFIER: identifier,
+        VERTICES: mesh_as_vectors_without_duplicates,
+        VERTEX_COUNT: mesh_as_vectors_without_duplicates.length,
+        VERTEX_COUNT_BEFORE_DEDUPLICATION: mesh_as_vectors.length,
+        AABB: axis_aligned_bounding_box
+      }
+    );
 
     }
     
-    console.log(this.MESH_INFO);
+    console.log(this.mesh_information);
 
   }
 
   this.create_heightmap = function (identifier, size, mesh_resolution, mesh_max_height, mesh_min_height, seed) {
     
-    const heightMap = new HeightMap(identifier, size, mesh_resolution, mesh_max_height, mesh_min_height, seed);
-    const heightMapCollider = new HeightMapCollider(heightMap);
+    const heightmap = new Heightmap(identifier, size, mesh_resolution, mesh_max_height, mesh_min_height, seed);
+    const heightmap_collider = new HeightmapCollider(heightmap);
 
-    this.Statics.push(heightMapCollider);
-    this.HeightMaps.push(heightMap);
+    this.active_statics.push(heightmap_collider);
+    this.heightmaps.push(heightmap);
 
-    return heightMap;
+    return heightmap;
 
   }
 
@@ -1872,9 +1937,11 @@ Engine = function(plugin_node_object, run_custom_scene_setup) {
     
     const mesh_identifiers = Object.values(MeshIdentifier);
 
+    const entities_in_render_range = this.active_entities.filter(x => this.main_camera.direction.dot(x.physics_body.position.copy().sub(this.main_camera.position.copy())) > 0);
+
     for (const identifier of mesh_identifiers) {
 
-      const entities_with_mesh = this.Entities.filter(x => x.type === identifier);
+      const entities_with_mesh = entities_in_render_range.filter(x => x.type === identifier);
 
       const output_size = Math.max(1, entities_with_mesh.length)
 
@@ -1897,7 +1964,7 @@ Engine = function(plugin_node_object, run_custom_scene_setup) {
       }
       
       
-      this.Output.render_meshes(identifier, interpolated_positions, interpolated_rotations, scales);
+      this.output_system.render_meshes(identifier, interpolated_positions, interpolated_rotations, scales);
 
     }
 
@@ -1905,43 +1972,45 @@ Engine = function(plugin_node_object, run_custom_scene_setup) {
 
   this.loop = function() {
 
-    this.Timers = this.Timers.filter(x => !x.finished);
+    this.active_timers = this.active_timers.filter(x => !x.finished);
 
-    const deltaTime = this.Input.getData(InputDataIdentifier.DELTA_TIME) / 1000;
+    const delta_time_in_milliseconds = this.input_system.get_data(InputDataIdentifier.DELTA_TIME)
+    const delta_time_in_seconds = delta_time_in_milliseconds / 1000;
+    const delta_time_limited = Math.min(this.MAX_DELTA_TIME,  delta_time_in_seconds);
 
-    for (const timer of this.Timers) {
+    for (const timer of this.active_timers) {
 
-      timer.tick(deltaTime);
-
-    }
-
-    this.Accumulator += deltaTime;
-
-    while (this.Accumulator >= this.FIXED_TIME_STEP) {
-
-      this.Controller.step(this.Entities);
-      this.Physics.step(this.Entities, this.Statics, this.FIXED_TIME_STEP);
-
-      this.Accumulator -= this.FIXED_TIME_STEP;
+      timer.tick(delta_time_limited);
 
     }
 
-    const alpha = this.Accumulator / this.FIXED_TIME_STEP;
+    this.time_accumulator += delta_time_limited;
 
-    const player_body = this.Entities.filter(x => x.type === MeshIdentifier.PLAYER)[0].physics_body;
+    while (this.time_accumulator >= this.FIXED_TIME_STEP) {
+
+      this.controller_system.step(this.active_entities);
+      this.physics_system.step(this.active_entities, this.active_statics, this.FIXED_TIME_STEP);
+
+      this.time_accumulator -= this.FIXED_TIME_STEP;
+
+    }
+
+    const alpha = this.time_accumulator / this.FIXED_TIME_STEP;
+
+    const player_body = this.active_entities.filter(x => x.type === MeshIdentifier.PLAYER)[0].physics_body;
     const player_render_position = Vector3.interpolate_vectors(alpha, player_body.last_position, player_body.position);
     const player_render_rotation_y = Vector3.interpolate_vectors(alpha, player_body.last_rotation, player_body.rotation).y;
 
-    this.Camera.update(player_render_position, player_render_rotation_y);
-    this.Output.set_camera(this.Camera);
+    this.main_camera.update(player_render_position, player_render_rotation_y);
+    this.output_system.set_camera(this.main_camera);
     
-    for(const heightmap of this.HeightMaps) {
+    for(const heightmap of this.heightmaps) {
 
       heightmap.update(player_body.position);
 
       if (heightmap.has_recently_changed_tile) {
 
-        this.Output.render_heightmap(heightmap);
+        this.output_system.render_heightmap(heightmap);
         heightmap.has_recently_changed_tile = false;
 
       }
@@ -1949,18 +2018,19 @@ Engine = function(plugin_node_object, run_custom_scene_setup) {
     }
 
     this.render_entities(alpha);
-    this.Output.setEngineState(this.State);
+
+    this.output_system.set_engine_state(this.current_state);
 
   };
 
   this.create_entity = function (mesh_identifier, controller, scale, mass, position) {
 
-    const collider = new CombinedCollider(this.MESH_INFO.get(mesh_identifier));
+    const collider = new CombinedCollider(this.mesh_information.get(mesh_identifier));
     const body = new PhysicsBody(collider, scale, mass);
     body.position = position ? position : body.position;
 
     const entity = new Entity(mesh_identifier, body, controller);
-    this.Entities.push(entity);
+    this.active_entities.push(entity);
 
     return entity;
 
@@ -1969,25 +2039,25 @@ Engine = function(plugin_node_object, run_custom_scene_setup) {
   this.setup_scene = function() {
 
     run_custom_scene_setup(this);
-    this.State = EngineStateType.GAME;
-    this.Output.setEngineState(this.State);
+    this.current_state = EngineStateType.GAME;
+    this.output_system.set_engine_state(this.current_state);
 
   };
 
   this.initialize = function() {
 
-    if(!this.Is_Initialized) {
+    if(!this.is_initialized) {
 
       this.load_meshes();
       this.setup_scene();
 
     }
 
-    this.Is_Initialized = true;
+    this.is_initialized = true;
 
   }
 
-  this.Output.setEngineState(this.State);
+  this.output_system.set_engine_state(this.current_state);
 
 };
 
@@ -2004,14 +2074,14 @@ PlayerController = function (input) {
   this.MAX_MOTOR_DRAG = this.MAX_MOTOR_ACCELERATION_STRENGTH / (this.MAX_MOTOR_SPEED * this.MAX_MOTOR_SPEED);
   this.GRAVITY = new Vector3(0,-1,0);
 
-  this.updateBody = function (body) {
+  this.update_body = function (body) {
     
-    body.applyForce(this.GRAVITY);
+    body.apply_force(this.GRAVITY);
 
-    if (input.isKeydown(InputKeyIdentifier.LEFT) || input.isKeydown(InputKeyIdentifier.RIGHT)) {
+    if (input.is_keydown(InputKeyIdentifier.LEFT) || input.is_keydown(InputKeyIdentifier.RIGHT)) {
 
-      const rotation_direction = new Vector3(0, input.isKeydown(InputKeyIdentifier.LEFT) ? 1 : -1, 0);
-      rotation_direction.mult(input.isKeydown(InputKeyIdentifier.BACKWARD) ? -1 : 1);
+      const rotation_direction = new Vector3(0, input.is_keydown(InputKeyIdentifier.LEFT) ? 1 : -1, 0);
+      rotation_direction.mult(input.is_keydown(InputKeyIdentifier.BACKWARD) ? -1 : 1);
       body.angular_velocity = rotation_direction;
 
     } else {
@@ -2020,20 +2090,20 @@ PlayerController = function (input) {
 
     }
 
-    const current_speed_sq = body.velocity.magSq();
-    const motor_drag = body.velocity.copy().setMag(-this.MAX_MOTOR_DRAG * current_speed_sq);
+    const current_speed_squared = body.velocity.magnitude_squared();
+    const motor_drag = body.velocity.copy().set_magnitude(-this.MAX_MOTOR_DRAG * current_speed_squared);
     motor_drag.y = 0;
 
-    body.applyForce(motor_drag);
+    body.apply_force(motor_drag);
 
-    if (input.isKeydown(InputKeyIdentifier.FORWARD) || input.isKeydown(InputKeyIdentifier.BACKWARD)) {
+    if (input.is_keydown(InputKeyIdentifier.FORWARD) || input.is_keydown(InputKeyIdentifier.BACKWARD)) {
 
       const global_upward = new Vector3(0, 1, 0);
-      const global_direction = new Vector3(0, 0, input.isKeydown(InputKeyIdentifier.FORWARD) ? 1 : -1);
-      const direction = global_direction.rotateAround(global_upward, -body.rotation.y);
-      const acceleration = direction.setMag(this.MAX_MOTOR_ACCELERATION_STRENGTH);
+      const global_direction = new Vector3(0, 0, input.is_keydown(InputKeyIdentifier.FORWARD) ? 1 : -1);
+      const direction = global_direction.rotate_around(global_upward, -body.rotation.y);
+      const acceleration = direction.set_magnitude(this.MAX_MOTOR_ACCELERATION_STRENGTH);
 
-      body.applyForce(acceleration);
+      body.apply_force(acceleration);
 
     };
 
@@ -2051,19 +2121,19 @@ EnemyController = function (target_entity) {
   this.MAX_MOTOR_SPEED = 5;
   this.MOTOR_DRAG = this.MAX_MOTOR_ACCELERATION_STRENGTH / (this.MAX_MOTOR_SPEED * this.MAX_MOTOR_SPEED);
 
-  this.updateBody = function (body) {
+  this.update_body = function (body) {
 
-    const current_speed_sq = body.velocity.magSq();
-    const drag = body.velocity.copy().setMag(-this.MOTOR_DRAG * current_speed_sq);
+    const current_speed_squared = body.velocity.magnitude_squared();
+    const drag = body.velocity.copy().set_magnitude(-this.MOTOR_DRAG * current_speed_squared);
     drag.y = 0;
 
-    body.applyForce(drag);
+    body.apply_force(drag);
 
     const target = target_entity.physics_body.position.copy();
-    const direction = target.addScaled(body.position, -1);
-    const acceleration = direction.setMag(this.MAX_MOTOR_ACCELERATION_STRENGTH);
+    const direction = target.add_scaled(body.position, -1);
+    const acceleration = direction.set_magnitude(this.MAX_MOTOR_ACCELERATION_STRENGTH);
 
-    body.applyForce(acceleration);
+    body.apply_force(acceleration);
 
     body.rotation.y = Math.atan2(body.velocity.z, body.velocity.x) - Math.PI / 2;
 
@@ -2077,10 +2147,10 @@ EnemyController = function (target_entity) {
 
 function custom_scene_setup(engine) {
 
-  const player = engine.create_entity(MeshIdentifier.PLAYER, new PlayerController(engine.Input), 1, 0.5);
-  const height_map = engine.create_heightmap(HeightMapIdentifier.WORLD, 1000, 10000, 50, -10, 1);
+  const player = engine.create_entity(MeshIdentifier.PLAYER, new PlayerController(engine.input_system), 1, 0.5);
+  const heightmap = engine.create_heightmap(HeightmapIdentifier.WORLD, 200, 244, 10, -10, 1);
 
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 20; i++) {
 
     engine.create_entity(MeshIdentifier.ENEMY, new EnemyController(player), 0.5, 1, new Vector3(10, 0, 0));
 
@@ -2091,8 +2161,9 @@ function custom_scene_setup(engine) {
 if(!engine) {
 
   engine = new Engine(plugin_node_object, custom_scene_setup);
+  engine.render_entities(0);
 
-} else if (!engine.Is_Initialized) {
+} else if (!engine.is_initialized) {
 
   engine.initialize();
 
